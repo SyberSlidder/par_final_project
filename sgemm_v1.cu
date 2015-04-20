@@ -116,9 +116,10 @@ __global__ void combinedSGEMM(
     }
 
     temp[0] += temp[1] + temp[2] + temp[3];
+   
     // We have Cij at this point
     _C[(blockIdx.y*blockDim.y*N)+(blockIdx.x*blockDim.x)+threadIdx.x] = temp[0];
-
+ 
 }
 
 
@@ -190,7 +191,7 @@ int main(int argc, char * argv[]) {
     ////////////////////////////////////////////////
     
     // Initialize data on host
-    srand(0);
+    /*srand(0);
     for(int m = 0; m < M; m++){
         for(int k = 0; k < K; k++){
             hostA[m*K+k] = (float)rand()/(float)(RAND_MAX/1000);
@@ -201,7 +202,7 @@ int main(int argc, char * argv[]) {
             hostA[k*N*+n] = (float)rand()/(float)(RAND_MAX/1000);
         }
     }
-    
+    */
     
     
     ////////////////////////////////////////////////
@@ -224,6 +225,12 @@ int main(int argc, char * argv[]) {
     
     // Launch kernel
     combinedSGEMM<<<gridSize,blockSize>>>(devA,devB,devC,0,0,M,N,K);
+    
+    if (cudaPeekAtLastError() != cudaSuccess) {
+      cout << "Error - Kernel did not terminate properly." << endl;
+    } else {
+      cout << "Kernel finished successfully." << endl;
+    }
     
     // Transfer result from device to host
     cudaMemcpy(hostC,devC,M*N*sizeof(float),cudaMemcpyDeviceToHost);
