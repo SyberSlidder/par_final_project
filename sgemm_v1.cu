@@ -75,7 +75,7 @@ __global__ void combinedSGEMM(
     
     // Some identity information
     // myID is a linear index for shared memory
-    int myID  = blockIdx.x + (blockDim.x)*threadIdx.y;      
+    int myID  = threadIdx.x + (blockDim.x)*threadIdx.y;      
     
     // Does not change
     int A_row    = (blockIdx.y*blockDim.y) + threadIdx.y;
