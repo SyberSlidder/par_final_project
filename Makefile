@@ -1,11 +1,14 @@
 
 
 CC=nvcc
-CFLAGS=-O2
+CFLAGS=-O0
 OUT_NAME=cuda_out
+FILES = main.cpp \
+	sgemm_v1.cu \
+	squareSumVector.cu
 
-all: main.cpp 
-	$(CC) $(CFLAGS) main.cpp -o $(OUT_NAME)
+all: $(FILES) 
+	$(CC) $(CFLAGS) $(FILES) -o $(OUT_NAME)
 
 run:
 	./$(OUT_NAME)
