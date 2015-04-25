@@ -16,6 +16,9 @@ using namespace std;
 #define THREADS_PER_BLOCK 8*8
 #define BLOCKS 64
 
+#define RANDOM_SEED false
+#define RAND_SEED 100
+
 // Definitions of each Kernel
 
 // warpReduce Kernel

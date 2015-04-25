@@ -1,9 +1,7 @@
-
-
 CC=nvcc
 CFLAGS=-O0
 OUT_NAME=cuda_out
-FILES = main.cpp \
+FILES = main.cu \
 	sgemm_v1.cu \
 	squareSumVector.cu
 

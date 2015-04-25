@@ -14,7 +14,7 @@ __global__ void combinedSGEMM_v1(
 
     // Shared memory declarations 
     // Local memory used to hold partial updates of the result Matrix
-    __shared__ float C_holder[THREADS_PER_BLOCK];
+    //__shared__ float C_holder[THREADS_PER_BLOCK];
     // Sub block of A of size THREADS_PER_BLOCK_Y by KSub
     __shared__ float A_Holder[THREADS_PER_BLOCK];
     // Sub block of B of size KSub by THREADS_PER_BLOCK_X

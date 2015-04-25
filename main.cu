@@ -1,7 +1,15 @@
 #include "main.h"
 
 int main(int argc, char * argv[]) {
-
+    
+    // Misc
+    int kernelVersion;
+    double cpuStartTime;
+    double cpuEndTime;
+    double runtime;
+    double flop;
+    
+    
     // Matrix dimensions
     int    M, N, K;
     
@@ -30,8 +38,8 @@ int main(int argc, char * argv[]) {
     ////////////////////////////////////////////////
 
     // Check for proper arguments
-    if(argc != 4){
-        fprintf(stderr, "USAGE: ./kernelSummation M N K\n");
+    if(argc != 5){
+        fprintf(stderr, "USAGE: ./kernelSummation M N K KernelVersion\n");
         exit(EXIT_SUCCESS);
     }
     
@@ -39,6 +47,7 @@ int main(int argc, char * argv[]) {
     M = atoi(argv[1]);
     N = atoi(argv[2]);
     K = atoi(argv[3]);
+    kernelVersion = atoi(argv[4]);
     
     // Check for valid arguments
     if(M <= 0 || N <= 0 || K <= 0){
@@ -71,7 +80,12 @@ int main(int argc, char * argv[]) {
     ////////////////////////////////////////////////
     
     // Initialize data on host
-    srand(time(0));
+    if (RANDOM_SEED) {
+      srand(time(0));
+    } else {
+      srand(RAND_SEED);
+    }
+    
     for(int m = 0; m < M; m++){
         for(int k = 0; k < K; k++){
             hostA[m*K+k] = (float)rand()/(float)(RAND_MAX/10);
@@ -100,19 +114,30 @@ int main(int argc, char * argv[]) {
     blockSize.x = THREADS_PER_BLOCK_X;
     blockSize.y = THREADS_PER_BLOCK_Y;
     blockSize.z = 1;
-    
-    // Launch kernel
-    gridSize.x = 1;
-    gridSize.y = M;
-    //calcSquareSumVector<<<gridSize,1024>>>(devA,devSqSumVecA,M,K);
-    
+    dim3 gridSize1;
+    // Kernel Selection
+    switch (kernelVersion) {	
+      case 1:
+	  gridSize1.x = 1;
+	  gridSize1.y = M;
+	  gridSize1.z = 1;
+	  cpuStartTime = CycleTimer::currentSeconds();
+	  calcSquareSumVector<<<gridSize1,1024>>>(devA,devSqSumVecA,M,K);
+	  calcSquareSumVector<<<gridSize1,1024>>>(devB,devSqSumVecB,N,K);
+	  combinedSGEMM_v1<<<gridSize,blockSize>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,M,N,K);
+	  cpuEndTime = CycleTimer::currentSeconds();
+	  runtime = 1000.f * (cpuEndTime-cpuStartTime);
+	  printf("Version %d Runtime: %.3f ms\n",kernelVersion,runtime);
+	break;
+      default:
+	cout << "Error - Must choose a proper Kernel." << endl;
+	exit(-1);
+    }    
     
     // Transfer result from device to host
     cudaMemcpy(hostSqSumVecA,devSqSumVecA,M*sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(hostSqSumVecB,devSqSumVecB,N*sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(hostC,devC,M*N*sizeof(float),cudaMemcpyDeviceToHost);
-    
-    
     
     ////////////////////////////////////////////////
     //            RESULT VERIFICATION             //
@@ -124,10 +149,23 @@ int main(int argc, char * argv[]) {
         for(int k = 0; k < K; k++){
             sqSum += hostA[m*K+k]*hostA[m*K+k];
         }
-        if(int(sqSum) != int(hostSqSumVecA[m]))
+        if(int(sqSum) != int(hostSqSumVecA[m])) {
             fprintf(stderr, " Bad square sum: [m = %d] [refSqSum = %f] [devSqSum = %f]\n", m, sqSum, hostSqSumVecA[m]);
-        else
-            fprintf(stderr, "Good square sum: [m = %d] [refSqSum = %f] [devSqSum = %f]\n", m, sqSum, hostSqSumVecA[m]);
+	} else {
+            //fprintf(stderr, "Good square sum: [m = %d] [refSqSum = %f] [devSqSum = %f]\n", m, sqSum, hostSqSumVecA[m]);
+	}
+    }    
+
+    for(int n = 0; n < N; n++){
+        float sqSum = 0.0;
+        for(int k = 0; k < K; k++){
+            sqSum += hostB[n*K+k]*hostB[n*K+k];
+        }
+        if(int(sqSum) != int(hostSqSumVecB[n])) {
+            fprintf(stderr, " Bad square sum: [m = %d] [refSqSum = %f] [devSqSum = %f]\n", n, sqSum, hostSqSumVecB[n]);
+	} else {
+            //fprintf(stderr, "Good square sum: [m = %d] [refSqSum = %f] [devSqSum = %f]\n", n, sqSum, hostSqSumVecB[n]);
+	}
     }    
     
     
