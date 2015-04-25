@@ -157,11 +157,11 @@ int main(int argc, char * argv[]) {
     cudaMemcpy(hostSqSumVecA,devSqSumVecA,M*sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(hostSqSumVecB,devSqSumVecB,N*sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(hostC,devC,M*N*sizeof(float),cudaMemcpyDeviceToHost);
-    
-    for (int index = 0; index != 15; index++) {
-      printf("%f\n",hostC[index]);
+    /*
+    for (int index = 0; index != 64; index++) {
+      printf("%d: %f\n",index,hostC[index]);
     }
-    
+    */
     ////////////////////////////////////////////////
     //            RESULT VERIFICATION             //
     ////////////////////////////////////////////////
