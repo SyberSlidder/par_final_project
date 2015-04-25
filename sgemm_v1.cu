@@ -62,8 +62,18 @@ __global__ void combinedSGEMM_v1(
 	
     }
 
+    // Load in the elements from the squared reduced vectors of size Mx1 and 1xN
+    float M_row_reduced    = sqSumVecA[A_row];
+    float N_column_reduced = sqSumVecB[B_column];
+    
+    // We have Cij at this point
     temp[0] += temp[1] + temp[2] + temp[3];
-   
+    
+    temp[0] = 2*temp[0] + M_row_reduced + N_column_reduced;
+    
+    // Kernel evaluation
+    temp[0] = exp(temp[0]);
+    
     // We have Cij at this point
     _C[(blockIdx.y*blockDim.y*N)+(blockIdx.x*blockDim.x)+threadIdx.x] = temp[0];
  

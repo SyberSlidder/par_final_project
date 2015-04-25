@@ -49,6 +49,10 @@ int main(int argc, char * argv[]) {
     K = atoi(argv[3]);
     kernelVersion = atoi(argv[4]);
     
+    // Print out the memory usage assuming no C matrix
+    int totalBytes = 4 * ((M * K) + (K*N) + (2*M) + (2*N));
+    printf("Total Bytes Needed: %d (%f GB) \n",totalBytes,totalBytes/1073741824.0);
+    
     // Check for valid arguments
     if(M <= 0 || N <= 0 || K <= 0){
         fprintf(stderr, "ERROR: One of the dimensions is <=0\n");
@@ -127,7 +131,7 @@ int main(int argc, char * argv[]) {
 	  combinedSGEMM_v1<<<gridSize,blockSize>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,M,N,K);
 	  cpuEndTime = CycleTimer::currentSeconds();
 	  runtime = 1000.f * (cpuEndTime-cpuStartTime);
-	  printf("Version %d Runtime: %.3f ms\n",kernelVersion,runtime);
+	  printf("Version %d Runtime: %.5f ms\n",kernelVersion,runtime);
 	break;
       default:
 	cout << "Error - Must choose a proper Kernel." << endl;
@@ -142,7 +146,7 @@ int main(int argc, char * argv[]) {
     ////////////////////////////////////////////////
     //            RESULT VERIFICATION             //
     ////////////////////////////////////////////////
-    
+    /*
     // Verify square-sums
     for(int m = 0; m < M; m++){
         float sqSum = 0.0;
@@ -150,7 +154,7 @@ int main(int argc, char * argv[]) {
             sqSum += hostA[m*K+k]*hostA[m*K+k];
         }
         if(int(sqSum) != int(hostSqSumVecA[m])) {
-            fprintf(stderr, " Bad square sum: [m = %d] [refSqSum = %f] [devSqSum = %f]\n", m, sqSum, hostSqSumVecA[m]);
+            //fprintf(stderr, " Bad square sum: [m = %d] [refSqSum = %f] [devSqSum = %f]\n", m, sqSum, hostSqSumVecA[m]);
 	} else {
             //fprintf(stderr, "Good square sum: [m = %d] [refSqSum = %f] [devSqSum = %f]\n", m, sqSum, hostSqSumVecA[m]);
 	}
@@ -162,12 +166,12 @@ int main(int argc, char * argv[]) {
             sqSum += hostB[n*K+k]*hostB[n*K+k];
         }
         if(int(sqSum) != int(hostSqSumVecB[n])) {
-            fprintf(stderr, " Bad square sum: [m = %d] [refSqSum = %f] [devSqSum = %f]\n", n, sqSum, hostSqSumVecB[n]);
+           // fprintf(stderr, " Bad square sum: [m = %d] [refSqSum = %f] [devSqSum = %f]\n", n, sqSum, hostSqSumVecB[n]);
 	} else {
             //fprintf(stderr, "Good square sum: [m = %d] [refSqSum = %f] [devSqSum = %f]\n", n, sqSum, hostSqSumVecB[n]);
 	}
     }    
-    
+    */
     
     ////////////////////////////////////////////////
     //             FREE MEMORY & EXIT             //
