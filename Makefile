@@ -6,7 +6,7 @@ FILES = main.cu \
 	squareSumVector.cu
 
 all: $(FILES) 
-	$(CC) $(CFLAGS) $(FILES) -o $(OUT_NAME)
+	$(CC) $(CFLAGS) $(FILES) -lcublas -o $(OUT_NAME)
 
 run:
 	./$(OUT_NAME)

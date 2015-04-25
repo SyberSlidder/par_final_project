@@ -69,10 +69,10 @@ __global__ void combinedSGEMM_v1(
     // We have Cij at this point
     temp[0] += temp[1] + temp[2] + temp[3];
     
-    temp[0] = 2*temp[0] + M_row_reduced + N_column_reduced;
+    //temp[0] = 2*temp[0] + M_row_reduced + N_column_reduced;
     
     // Kernel evaluation
-    temp[0] = exp(temp[0]);
+    //temp[0] = exp(temp[0]);
     
     // We have Cij at this point
     _C[(blockIdx.y*blockDim.y*N)+(blockIdx.x*blockDim.x)+threadIdx.x] = temp[0];

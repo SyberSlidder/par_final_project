@@ -120,7 +120,16 @@ int main(int argc, char * argv[]) {
     blockSize.z = 1;
     dim3 gridSize1;
     // Kernel Selection
-    switch (kernelVersion) {	
+    switch (kernelVersion) {
+      case 0:
+	  cpuStartTime = CycleTimer::currentSeconds();
+	  cublasInit();
+	  cublasSgemm( 'n', 'n', M, N, K, 1.0, devA, M, devB, K, 0.0, devC, M);
+	  cpuEndTime = CycleTimer::currentSeconds();
+	  runtime = 1000.f * (cpuEndTime-cpuStartTime);
+	  printf("Version %d Runtime: %.5f ms\n",kernelVersion,runtime);
+	  cublasShutdown();
+	  break;
       case 1:
 	  gridSize1.x = 1;
 	  gridSize1.y = M;
@@ -129,9 +138,15 @@ int main(int argc, char * argv[]) {
 	  calcSquareSumVector<<<gridSize1,1024>>>(devA,devSqSumVecA,M,K);
 	  calcSquareSumVector<<<gridSize1,1024>>>(devB,devSqSumVecB,N,K);
 	  combinedSGEMM_v1<<<gridSize,blockSize>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,M,N,K);
-	  cpuEndTime = CycleTimer::currentSeconds();
+	  cpuEndTime = CycleTimer::currentSeconds(); 
 	  runtime = 1000.f * (cpuEndTime-cpuStartTime);
 	  printf("Version %d Runtime: %.5f ms\n",kernelVersion,runtime);
+	  
+	  if (cudaGetLastError() != CUDA_SUCCESS) {
+	    printf("Error in the kernel evaluation.\n");
+	    exit(-1);
+	  }
+	  
 	break;
       default:
 	cout << "Error - Must choose a proper Kernel." << endl;
@@ -142,6 +157,10 @@ int main(int argc, char * argv[]) {
     cudaMemcpy(hostSqSumVecA,devSqSumVecA,M*sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(hostSqSumVecB,devSqSumVecB,N*sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(hostC,devC,M*N*sizeof(float),cudaMemcpyDeviceToHost);
+    
+    for (int index = 0; index != 15; index++) {
+      printf("%f\n",hostC[index]);
+    }
     
     ////////////////////////////////////////////////
     //            RESULT VERIFICATION             //
@@ -172,6 +191,10 @@ int main(int argc, char * argv[]) {
 	}
     }    
     */
+    
+    // Verify Matrix multiplication
+    
+    
     
     ////////////////////////////////////////////////
     //             FREE MEMORY & EXIT             //
