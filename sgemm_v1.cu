@@ -201,12 +201,13 @@ __global__ void combinedSGEMM_v2(
       // Compute from A1/B1
 
       rowSelect    = 8*threadIdx.y;
-      columnSelect = 8*threadIdx.x;
+
       
       #pragma unroll
       for (int j = 0; j < 8 ; j++) {
 	A_Holder = sharedA1[rowSelect];
 	rowSelect++;
+	columnSelect = 8*threadIdx.x;
 	#pragma unroll
 	for (int k = 0; k < 8; k++) {
 	  B_Holder = sharedB1[columnSelect];
@@ -217,8 +218,7 @@ __global__ void combinedSGEMM_v2(
       }
     
       rowSelect    = 8*threadIdx.y;
-      columnSelect = 8*threadIdx.x;
-      
+
       __syncthreads();
       
       // Compute from A2/B2
@@ -226,6 +226,7 @@ __global__ void combinedSGEMM_v2(
       for (int j = 0; j < 8 ; j++) {
 	A_Holder = sharedA2[rowSelect];
 	rowSelect++;
+	columnSelect = 8*threadIdx.x;
 	#pragma unroll
 	for (int k = 0; k < 8; k++) {
 	  B_Holder = sharedB2[columnSelect];
@@ -239,13 +240,32 @@ __global__ void combinedSGEMM_v2(
     }
   
     // Write back C
-    int C_row = 0;
-    int C_column = 0;
+    /*int C_row = loadRowA;
+    int C_column = loadRowB;
     
     for (int i = 0; i < 8; i++) {
       for (int j = 0; j < 8; j++) {
-	_C[C_row*0 + C_column] = partialSums[i][j];
+	_C[(C_row+i)*N + C_column+j] = partialSums[i][j];
       }
+    }
+    */
+    
+    float4 C_holder[2];
+    int C_row    = (blockIdx.y * (blockDim.y*8)) + (8*threadIdx.y);
+    int C_column = (blockIdx.x * (blockDim.x*8)) + (8*threadIdx.x);
+    
+    // By Row
+    for (int i = 0; i < 8; i++) {
+	C_holder[0].x = partialSums[i][0];
+	C_holder[0].y = partialSums[i][1];
+	C_holder[0].z = partialSums[i][2];
+	C_holder[0].w = partialSums[i][3];
+	*((float4 *)(_C + (C_row+i)*N + C_column)) = C_holder[0];
+	C_holder[1].x = partialSums[i][4];
+	C_holder[1].y = partialSums[i][5];
+	C_holder[1].z = partialSums[i][6];
+	C_holder[1].w = partialSums[i][7];
+	*((float4 *)(_C + (C_row+i)*N + C_column + 4)) = C_holder[1];
     }
     
 }

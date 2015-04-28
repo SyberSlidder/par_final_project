@@ -72,6 +72,11 @@ int main(int argc, char * argv[]) {
     cudaMalloc((void**)&devB, K*N*sizeof(float));
     cudaMalloc((void**)&devC, M*N*sizeof(float));
     
+    printf("Dev A: %x \n",devA);
+    printf("Dev B: %x \n",devB);
+    printf("Dev C: %x \n",devC);
+
+    
     cudaMalloc((void**)&devSqSumVecA, M*sizeof(float));
     cudaMemset(devSqSumVecA, 0, M*sizeof(float));
     cudaMalloc((void**)&devSqSumVecB, N*sizeof(float));
