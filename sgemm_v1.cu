@@ -383,14 +383,17 @@ __global__ void combinedSGEMM_v3(
       
       // Compute from A1/B1
 
-      rowSelect    = 8*threadIdx.y;
+      rowSelect    = 8*threadIdx.y + threadIdx.y;
 
+      int threadOffset = threadIdx.x;
+      
       #pragma unroll
       for (int j = 0; j < 8 ; j++) {
-	A_Holder[0] = *(((float *)(sharedA1+rowSelect))+0);
-	A_Holder[1] = *(((float *)(sharedA1+rowSelect))+2);
-	A_Holder[2] = *(((float *)(sharedA1+rowSelect))+3);
-	A_Holder[3] = *(((float *)(sharedA1+rowSelect))+4);
+	threadOffset = threadOffset % 8;
+	A_Holder[0] = *(((float *)(sharedA1+rowSelect))+0+threadOffset);
+	A_Holder[1] = *(((float *)(sharedA1+rowSelect))+1+threadOffset);
+	A_Holder[2] = *(((float *)(sharedA1+rowSelect))+2+threadOffset);
+	A_Holder[3] = *(((float *)(sharedA1+rowSelect))+3+threadOffset);
 
 	rowSelect++;
 	columnSelect = 8*threadIdx.x;
@@ -403,8 +406,7 @@ __global__ void combinedSGEMM_v3(
 	  columnSelect++;
 	  partialSums[j][k] += A_Holder[0]*B_Holder[0] + A_Holder[1]*B_Holder[1] + A_Holder[2]*B_Holder[2] + A_Holder[3]*B_Holder[3];
 	}
-	
-
+	threadOffset++;
       }
     
       rowSelect    = 8*threadIdx.y;
