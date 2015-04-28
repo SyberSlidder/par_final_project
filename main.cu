@@ -119,6 +119,7 @@ int main(int argc, char * argv[]) {
     blockSize.y = THREADS_PER_BLOCK_Y;
     blockSize.z = 1;
     dim3 gridSize1;
+    dim3 gridSize2;
     // Kernel Selection
     switch (kernelVersion) {
       case 0:
@@ -134,6 +135,11 @@ int main(int argc, char * argv[]) {
 	  gridSize1.x = 1;
 	  gridSize1.y = M;
 	  gridSize1.z = 1;
+	  
+	  gridSize2.x = 8;
+	  gridSize2.y = 8;
+	  gridSize2.z = 1;
+	  
 	  cpuStartTime = CycleTimer::currentSeconds();
 	  calcSquareSumVector<<<gridSize1,1024>>>(devA,devSqSumVecA,M,K);
 	  calcSquareSumVector<<<gridSize1,1024>>>(devB,devSqSumVecB,N,K);
@@ -146,7 +152,28 @@ int main(int argc, char * argv[]) {
 	    printf("Error in the kernel evaluation.\n");
 	    exit(-1);
 	  }
+	  break;
+      case 2:
+	  gridSize1.x = N/64;
+	  gridSize1.y = M/64;
+	  gridSize1.z = 1;
 	  
+	  gridSize2.x = 8;
+	  gridSize2.y = 8;
+	  gridSize2.z = 1;
+	  
+	  
+	  cpuStartTime = CycleTimer::currentSeconds();
+	  //calcSquareSumVector<<<gridSize1,1024>>>(devA,devSqSumVecA,M,K);
+	  //calcSquareSumVector<<<gridSize1,1024>>>(devB,devSqSumVecB,N,K);
+	  combinedSGEMM_v2<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,M,N,K);
+	  cpuEndTime = CycleTimer::currentSeconds(); 
+	  runtime = 1000.f * (cpuEndTime-cpuStartTime);
+	  printf("Version %d Runtime: %.5f ms\n",kernelVersion,runtime);
+	  if (cudaGetLastError() != CUDA_SUCCESS) {
+	    printf("Error in the kernel evaluation.\n");
+	    exit(-1);
+	  }
 	break;
       default:
 	cout << "Error - Must choose a proper Kernel." << endl;
@@ -157,11 +184,11 @@ int main(int argc, char * argv[]) {
     cudaMemcpy(hostSqSumVecA,devSqSumVecA,M*sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(hostSqSumVecB,devSqSumVecB,N*sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(hostC,devC,M*N*sizeof(float),cudaMemcpyDeviceToHost);
-    /*
-    for (int index = 0; index != 64; index++) {
+    
+    for (int index = 0; index != 16; index++) {
       printf("%d: %f\n",index,hostC[index]);
     }
-    */
+    
     ////////////////////////////////////////////////
     //            RESULT VERIFICATION             //
     ////////////////////////////////////////////////
