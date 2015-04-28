@@ -202,7 +202,6 @@ __global__ void combinedSGEMM_v2(
 
       rowSelect    = 8*threadIdx.y;
 
-      
       #pragma unroll
       for (int j = 0; j < 8 ; j++) {
 	A_Holder = sharedA1[rowSelect];
@@ -215,6 +214,23 @@ __global__ void combinedSGEMM_v2(
 	  partialSums[j][k] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
 	}
 	
+	/*B_Holder = sharedB1[columnSelect+0];
+	partialSums[j][0] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+1];
+	partialSums[j][1] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+2];
+	partialSums[j][2] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+3];
+	partialSums[j][3] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+4];
+	partialSums[j][4] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+5];
+	partialSums[j][5] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+6];
+	partialSums[j][6] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;	
+	B_Holder = sharedB1[columnSelect+7];
+	partialSums[j][7] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;	
+	*/
       }
     
       rowSelect    = 8*threadIdx.y;
@@ -233,7 +249,24 @@ __global__ void combinedSGEMM_v2(
 	  columnSelect++;
 	  partialSums[j][k] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
 	}
-	
+	/*
+	B_Holder = sharedB2[columnSelect+0];
+	partialSums[j][0] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+1];
+	partialSums[j][1] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+2];
+	partialSums[j][2] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+3];
+	partialSums[j][3] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+4];
+	partialSums[j][4] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+5];
+	partialSums[j][5] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+6];
+	partialSums[j][6] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;	
+	B_Holder = sharedB2[columnSelect+7];
+	partialSums[j][7] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;	
+	*/
       }      
       
     
