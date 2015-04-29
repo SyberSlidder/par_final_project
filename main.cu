@@ -202,6 +202,28 @@ int main(int argc, char * argv[]) {
 	    exit(-1);
 	  }
 	break;
+      case 4:
+	  gridSize1.x = N/64;
+	  gridSize1.y = M/64;
+	  gridSize1.z = 1;
+	  
+	  gridSize2.x = 8;
+	  gridSize2.y = 8;
+	  gridSize2.z = 1;
+	  
+	  
+	  cpuStartTime = CycleTimer::currentSeconds();
+	  //calcSquareSumVector<<<gridSize1,1024>>>(devA,devSqSumVecA,M,K);
+	  //calcSquareSumVector<<<gridSize1,1024>>>(devB,devSqSumVecB,N,K);
+	  combinedSGEMM_v4<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,M,N,K);
+	  cpuEndTime = CycleTimer::currentSeconds(); 
+	  runtime = 1000.f * (cpuEndTime-cpuStartTime);
+	  printf("Version %d Runtime: %.5f ms\n",kernelVersion,runtime);
+	  if (cudaGetLastError() != CUDA_SUCCESS) {
+	    printf("Error in the kernel evaluation.\n");
+	    exit(-1);
+	  }
+	break;
 
       default:
 	cout << "Error - Must choose a proper Kernel." << endl;

@@ -468,7 +468,225 @@ __global__ void combinedSGEMM_v3(
     
 }
 
+__global__ void combinedSGEMM_v4(
+       float * _A, // Global pointer to matrix A 
+       float * _B, // Global pointer to matrix B
+       float * _C, // Global pointer to write out result of A*B
+       float * sqSumVecA, // M x 1 matrix derived from A
+       float * sqSumVecB, // N x 1 matrix derived from B
+       int M, // Number rows of A
+       int N, // Number of columns of B
+       int K  // Columns A, rows B
+) {
+  
+  __shared__ float sharedA1[4][64];
+  __shared__ float sharedA2[4][64];
+  __shared__ float sharedB1[4][64];
+  __shared__ float sharedB2[4][64];
 
+    // Identification
+    int linearThreadID = threadIdx.x + (blockDim.x * threadIdx.y);
+    
+    // Where do I read from A
+    int loadRowA = blockIdx.y * (blockDim.y*8); // Should multiple of 64
+    loadRowA += linearThreadID; // Which row of A this thread is responsible for loading
+    
+    float * a1ReadPtr = _A + (loadRowA * K);
+    float * a2ReadPtr = a1ReadPtr + 4;
+    
+    // Where do I read from B
+    int loadRowB;
+    float * b1ReadPtr;
+    float * b2ReadPtr;
+    
+    if (B_TRANSPOSE) {
+      loadRowB = blockIdx.y * (blockDim.y*8);
+      loadRowB += linearThreadID;
+      b1ReadPtr = _B + (loadRowB * K);
+      b2ReadPtr = b1ReadPtr + 4;
+    } else {
+
+      
+    }
+
+    // Initialization
+    float partialSums[MAXWELL_MICROTILE_SIZE][MAXWELL_MICROTILE_SIZE] = { 
+		  {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f},
+		  {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f},
+		  {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f},
+		  {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f},
+		  {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f},
+		  {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f},
+		  {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f},
+		  {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f}
+		  };
+
+		  
+    float4 A_Holder;
+    float4 B_Holder;
+    int rowSelect;
+    int columnSelect;
+    
+    // Loop through the K dimension of Matrices A and B
+    for (int i = 0; i < (K/8); i++) {
+
+      // Load from A into A1
+      //sharedA1[linearThreadID] = *((float4 *)a1ReadPtr);
+      A_Holder = *((float4 *)a1ReadPtr); //A_Holder is a float4 type, store its x,y,z,w in vertically in sharedA1
+      sharedA1[0][linearThreadID] = A_Holder.x;
+      sharedA1[1][linearThreadID] = A_Holder.y;
+      sharedA1[2][linearThreadID] = A_Holder.z;
+      sharedA1[3][linearThreadID] = A_Holder.w;
+      // Load from B into B1
+      //sharedB1[linearThreadID] = *((float4 *)b1ReadPtr);
+      B_Holder = *((float4 *)b1ReadPtr); //B_Holder is a float4 type, store its x,y,z,w in vertically in sharedB1
+      sharedB1[0][linearThreadID] = B_Holder.x;
+      sharedB1[1][linearThreadID] = B_Holder.y;
+      sharedB1[2][linearThreadID] = B_Holder.z;
+      sharedB1[3][linearThreadID] = B_Holder.w;
+      // Update pointers
+      a1ReadPtr += 8;
+      b1ReadPtr += 8;  
+      
+      __syncthreads();
+      
+      //sharedA2[linearThreadID] = *((float4 *)a2ReadPtr);
+      //sharedB2[linearThreadID] = *((float4 *)b2ReadPtr);
+      A_Holder = *((float4 *)a2ReadPtr); //A_Holder is a float4 type, store its x,y,z,w in vertically in sharedA2
+      sharedA2[0][linearThreadID] = A_Holder.x;
+      sharedA2[1][linearThreadID] = A_Holder.y;
+      sharedA2[2][linearThreadID] = A_Holder.z;
+      sharedA2[3][linearThreadID] = A_Holder.w;
+
+      B_Holder = *((float4 *)b2ReadPtr); //B_Holder is a float4 type, store its x,y,z,w in vertically in sharedB2
+      sharedB2[0][linearThreadID] = B_Holder.x;
+      sharedB2[1][linearThreadID] = B_Holder.y;
+      sharedB2[2][linearThreadID] = B_Holder.z;
+      sharedB2[3][linearThreadID] = B_Holder.w;
+
+      a2ReadPtr += 8;
+      b2ReadPtr += 8;
+      
+      // Compute from A1/B1
+
+      rowSelect    = 8*threadIdx.y;
+
+      #pragma unroll
+      for (int j = 0; j < 8 ; j++) {
+	//A_Holder = sharedA1[rowSelect];
+	A_Holder.x = sharedA1[0][rowSelect];
+	A_Holder.y = sharedA1[1][rowSelect];
+	A_Holder.z = sharedA1[2][rowSelect];
+	A_Holder.w = sharedA1[3][rowSelect];
+	rowSelect++;
+	columnSelect = 8*threadIdx.x;
+	#pragma unroll
+	for (int k = 0; k < 8; k++) {
+	  //B_Holder = sharedB1[columnSelect];
+	  B_Holder.x = sharedB1[0][columnSelect];
+	  B_Holder.y = sharedB1[1][columnSelect];
+	  B_Holder.z = sharedB1[2][columnSelect];
+	  B_Holder.w = sharedB1[3][columnSelect];
+	  columnSelect++;
+	  partialSums[j][k] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	}
+	
+	/*B_Holder = sharedB1[columnSelect+0];
+	partialSums[j][0] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+1];
+	partialSums[j][1] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+2];
+	partialSums[j][2] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+3];
+	partialSums[j][3] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+4];
+	partialSums[j][4] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+5];
+	partialSums[j][5] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB1[columnSelect+6];
+	partialSums[j][6] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;	
+	B_Holder = sharedB1[columnSelect+7];
+	partialSums[j][7] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;	
+	*/
+      }
+    
+      rowSelect    = 8*threadIdx.y;
+
+      __syncthreads();
+      
+      // Compute from A2/B2
+      #pragma unroll
+      for (int j = 0; j < 8 ; j++) {
+	//A_Holder = sharedA2[rowSelect];
+	A_Holder.x = sharedA2[0][rowSelect];
+	A_Holder.y = sharedA2[1][rowSelect];
+	A_Holder.z = sharedA2[2][rowSelect];
+	A_Holder.w = sharedA2[3][rowSelect];
+	rowSelect++;
+	columnSelect = 8*threadIdx.x;
+	#pragma unroll
+	for (int k = 0; k < 8; k++) {
+	  //B_Holder = sharedB2[columnSelect];
+	  B_Holder.x = sharedB2[0][columnSelect];
+	  B_Holder.y = sharedB2[1][columnSelect];
+	  B_Holder.z = sharedB2[2][columnSelect];
+	  B_Holder.w = sharedB2[3][columnSelect];
+	  columnSelect++;
+	  partialSums[j][k] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	}
+	/*
+	B_Holder = sharedB2[columnSelect+0];
+	partialSums[j][0] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+1];
+	partialSums[j][1] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+2];
+	partialSums[j][2] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+3];
+	partialSums[j][3] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+4];
+	partialSums[j][4] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+5];
+	partialSums[j][5] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
+	B_Holder = sharedB2[columnSelect+6];
+	partialSums[j][6] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;	
+	B_Holder = sharedB2[columnSelect+7];
+	partialSums[j][7] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;	
+	*/
+      }      
+      
+    
+    }
+  
+    // Write back C
+    /*int C_row = loadRowA;
+    int C_column = loadRowB;
+    
+    for (int i = 0; i < 8; i++) {
+      for (int j = 0; j < 8; j++) {
+	_C[(C_row+i)*N + C_column+j] = partialSums[i][j];
+      }
+    }
+    */
+    
+    float4 C_holder[2];
+    int C_row    = (blockIdx.y * (blockDim.y*8)) + (8*threadIdx.y);
+    int C_column = (blockIdx.x * (blockDim.x*8)) + (8*threadIdx.x);
+    
+    // By Row
+    for (int i = 0; i < 8; i++) {
+	C_holder[0].x = partialSums[i][0];
+	C_holder[0].y = partialSums[i][1];
+	C_holder[0].z = partialSums[i][2];
+	C_holder[0].w = partialSums[i][3];
+	*((float4 *)(_C + (C_row+i)*N + C_column)) = C_holder[0];
+	C_holder[1].x = partialSums[i][4];
+	C_holder[1].y = partialSums[i][5];
+	C_holder[1].z = partialSums[i][6];
+	C_holder[1].w = partialSums[i][7];
+	*((float4 *)(_C + (C_row+i)*N + C_column + 4)) = C_holder[1];
+    }
+    
+}
 
 
 
