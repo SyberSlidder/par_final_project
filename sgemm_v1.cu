@@ -570,7 +570,7 @@ __global__ void combinedSGEMM_v4(
       // Compute from A1/B1
 
       rowSelect    = 8*threadIdx.y;
-      //int rowOffset = threadIdx.x;
+      int rowOffset = linearThreadID % 32;
       
       #pragma unroll
       for (int j = 0; j < 8 ; j++) {
@@ -580,9 +580,9 @@ __global__ void combinedSGEMM_v4(
 	A_Holder.z = sharedA1[2][rowSelect];
 	A_Holder.w = sharedA1[3][rowSelect];
 	rowSelect++;
-	//rowOffset = (rowOffset + 1) % 8;
+	rowOffset = (rowOffset + 1) % 32;
 	columnSelect = 8*threadIdx.x;
-	//int columnOffset = threadIdx.x;
+	int columnOffset = linearThreadID % 32;
 	#pragma unroll
 	for (int k = 0; k < 8; k++) {
 	  //B_Holder = sharedB1[columnSelect];
@@ -591,7 +591,7 @@ __global__ void combinedSGEMM_v4(
 	  B_Holder.z = sharedB1[2][columnSelect];
 	  B_Holder.w = sharedB1[3][columnSelect];
 	  columnSelect++;
-	  //columnOffset = (columnOffset + 1) % 8;
+	  columnOffset = (columnOffset + 1) % 32;
 	  partialSums[j][k] += A_Holder.x*B_Holder.x + A_Holder.y*B_Holder.y + A_Holder.z*B_Holder.z + A_Holder.w*B_Holder.w;
 	}
 
