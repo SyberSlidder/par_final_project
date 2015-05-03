@@ -40,8 +40,10 @@ __global__ void MaxwellCombinedSGEMM_v1(
 	
 	// Where to read from in A
 	int loadRowA = ((blockDim.y*8) * blockIdx.y) + linearThreadID;
-	
 	float * aReadPtr = _A + (loadRowA * K);
+	// Where to read from in B
+	int loadRowB = (blockDim.y*8) * blockIdx.y;
+	float * bReadPtr = _B + (loadRowB * K);
 	
 	// Loop through the K dimension of Matrices A and B
 	// We are operating out of a 64 x 16 chunk of A/B
@@ -56,8 +58,6 @@ __global__ void MaxwellCombinedSGEMM_v1(
 		// Load from B into SM
 		
 		// Update pointers
-		
-		__syncthreads();
 				
 		// Grab 1 8-element track from A and 1 8-elemnt track from B
 		// 8 tracks total from A, 8 tracks total from B
@@ -72,16 +72,12 @@ __global__ void MaxwellCombinedSGEMM_v1(
 			// Reads down a track
 			int columnSelect = trackSelect + trackStartID;
 			for (int trackElement = 0; trackElement < 8; trackElement++) {
-			    
-			    if (columnSelect > 31) {
-			      printf("CS: %d \n", columnSelect);
-			      printf("WarpID: %d\n",warpID);
-			      printf("trackStartID: %d \n",trackStartID);
-			      printf("trackSelect: %d \n",trackSelect);
-			    }
 			    track1[trackElement] = smA[startIndex + trackElement][columnSelect];
 			}
-		  
+			
+			for (int trackElement = 0; trackElement < 8; trackElement++) {
+			    track2[trackElement] = smB[startIndex + trackElement][columnSelect];
+			}
 			// Load Track from B into track2
 			
 			// Compute the outer product of the the tracks
@@ -106,6 +102,14 @@ __global__ void MaxwellCombinedSGEMM_v1(
 		
 	}
 
-	_C[linearThreadID] = cVal[0][4] + cVal[7][6]; 
+	// Write back C
+	int C_row = loadRowA;
+	int C_column = loadRowB;
+	
+	for (int i = 0; i < 8; i++) {
+	  for (int j = 0; j < 8; j++) {
+	    _C[(C_row+i)*N + C_column+j] = cVal[i][j];
+	  }
+	}
 	
 }
