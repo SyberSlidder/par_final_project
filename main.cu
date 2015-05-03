@@ -26,12 +26,13 @@ int main(int argc, char * argv[]) {
     float *devC;
     float *devSqSumVecA;
     float *devSqSumVecB;
+    float * devW;
     
     // Kernel parameters
     dim3 gridSize;
     dim3 blockSize;
     
-    
+    cudaDeviceProp  deviceProp;
     
     ////////////////////////////////////////////////
     //           MEMORY INITIALIZATION            //
@@ -49,10 +50,19 @@ int main(int argc, char * argv[]) {
     K = atoi(argv[3]);
     kernelVersion = atoi(argv[4]);
     
-    // Print out the memory usage assuming no C matrix
-    int totalBytes = 4 * ((M * K) + (K*N) + (2*M) + (2*N));
-    printf("Total Bytes Needed: %d (%f GB) \n",totalBytes,totalBytes/1073741824.0);
-    
+    // Determine size of memory and check memory limits
+    cudaGetDeviceProperties(&deviceProp, 0);
+    size_t requiredDeviceMem = 0;
+    requiredDeviceMem += M*K*sizeof(float); // Matrix A
+    requiredDeviceMem += K*N*sizeof(float); // Matrix B
+    requiredDeviceMem += M*N*sizeof(float); // Matrix C
+    requiredDeviceMem +=   M*sizeof(float); // Square-Sum Vector A
+    requiredDeviceMem +=   N*sizeof(float); // Square-Sum Vector B
+    if(requiredDeviceMem > deviceProp.totalGlobalMem){
+        fprintf(stderr, "ERROR: Data is too large for device\n");
+        exit(EXIT_SUCCESS);
+    }
+
     // Check for valid arguments
     if(M <= 0 || N <= 0 || K <= 0){
         fprintf(stderr, "ERROR: One of the dimensions is <=0\n");
@@ -82,7 +92,7 @@ int main(int argc, char * argv[]) {
     cudaMalloc((void**)&devSqSumVecB, N*sizeof(float));
     cudaMemset(devSqSumVecB, 0, N*sizeof(float));
     
-    
+    cudaMalloc((void**)&devW, N*sizeof(float));
     
     ////////////////////////////////////////////////
     //             DATA INITIALIZATION            //
@@ -210,19 +220,17 @@ int main(int argc, char * argv[]) {
 	  gridSize2.x = 8;
 	  gridSize2.y = 8;
 	  gridSize2.z = 1;
+
+	  callSquareSumVector(devA,devSqSumVecA,M,K,deviceProp.maxGridSize[1]);
+	  callSquareSumVector(devB,devSqSumVecB,N,K,deviceProp.maxGridSize[1]);
 	  
-	  
-	  cpuStartTime = CycleTimer::currentSeconds();
-	 // calcSquareSumVector<<<gridSize1,1024>>>(devA,devSqSumVecA,M,K);
-	 // calcSquareSumVector<<<gridSize1,1024>>>(devB,devSqSumVecB,N,K);
-	  combinedSGEMM_v4<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,M,N,K);
-	  cpuEndTime = CycleTimer::currentSeconds(); 
-	  runtime = 1000.f * (cpuEndTime-cpuStartTime);
-	  printf("Version %d Runtime: %.5f ms\n",kernelVersion,runtime);
+	  combinedSGEMM_v4<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,devW,M,N,K);
+
 	  if (cudaGetLastError() != CUDA_SUCCESS) {
 	    printf("Error in the kernel evaluation.\n");
 	    exit(-1);
 	  }
+	  
 	break;
       case 5:
 	  gridSize1.x = N/64;
@@ -234,13 +242,12 @@ int main(int argc, char * argv[]) {
 	  gridSize2.z = 1;
 	  
 	  MaxwellCombinedSGEMM_v1<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,M,N,K);
-	  cpuEndTime = CycleTimer::currentSeconds(); 
-	  runtime = 1000.f * (cpuEndTime-cpuStartTime);
-	  printf("Version %d Runtime: %.5f ms\n",kernelVersion,runtime);
+
 	  if (cudaGetLastError() != CUDA_SUCCESS) {
 	    printf("Error in the kernel evaluation.\n");
 	    exit(-1);
 	  }
+	  
 	break;
       default:
 	cout << "Error - Must choose a proper Kernel." << endl;

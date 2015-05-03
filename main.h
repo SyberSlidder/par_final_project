@@ -9,6 +9,8 @@
 #include <cublas.h>
 #include "cycleTimer.h"
 
+#include <inplace/transpose.h>
+
 using namespace std;
 
 #define THREADS_PER_BLOCK_X 8
@@ -22,6 +24,13 @@ using namespace std;
 // Definitions of each Kernel
 
 // warpReduce Kernel
+
+void callSquareSumVector(float *srcMatrix,
+				    float *sqSumVector,
+				    int M,
+				    int K,
+				    int maxGridSize
+);
 
 __global__ void calcSquareSumVector(float *srcMatrix,
                                     float *sqSumVector,
@@ -71,6 +80,7 @@ __global__ void combinedSGEMM_v4(
        float * _C, // Global pointer to write out result of A*B
        float * sqSumVecA, // M x 1 matrix derived from A
        float * sqSumVecB, // N x 1 matrix derived from B
+       float * _W, // Weight vector
        int M, // Number rows of A
        int N, // Number of columns of B
        int K  // Columns A, rows B

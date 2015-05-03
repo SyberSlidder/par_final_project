@@ -1,5 +1,6 @@
 #include "main.h"
 
+// Warp reduction functions
 #if __CUDA_ARCH__ >= 300
 __device__ inline float warpReduce(float value, int laneID){
     // Use XOR mode to perform butterfly reduction
@@ -18,12 +19,33 @@ __device__ inline float warpReduce(float value, int laneID){
             values[threadIdx.x] += values[threadIdx.x+i];
         }
     }
-    
     return values[threadIdx.x];
 }
 #endif
 
 
+void callSquareSumVector(float *srcMatrix,
+				    float *sqSumVector,
+				    int M,
+				    int K,
+				    int maxGridSize
+) {
+ 
+
+  
+    dim3 gridSize;
+    dim3 blockSize;
+  
+    gridSize.x  = 1;
+    gridSize.y  = min(M,maxGridSize);
+    blockSize.x = min(1024,max(32,(K/32)*32));
+    blockSize.y = 1;
+    calcSquareSumVector<<<gridSize,blockSize>>>(srcMatrix,sqSumVector,M,K);
+    
+}
+
+
+// Square-sum reduction of matrix rows kernel
 __global__ void calcSquareSumVector(float *srcMatrix,
                                     float *sqSumVector,
                                     int    M,
@@ -34,17 +56,24 @@ __global__ void calcSquareSumVector(float *srcMatrix,
 
     // Calculate thread index and stride
     int laneId = threadIdx.x & 0x1f;
-    int icol   = blockIdx.x*blockDim.x + threadIdx.x;
-    int stride = blockDim.x*gridDim.x;
+    int icol   = threadIdx.x;
+    int stride = blockDim.x;
     int warpId = threadIdx.x/32;
 
-    // Thread-Local sum
-    float mySqSum = 0.0;
+    
+
+    // Initialize shared data
+    if(warpId == 0)
+        sdata[laneId] = 0;
+    __syncthreads();
 
     // Split rows amongst thread blocks
     for(int row  = blockIdx.y;
             row  < M;
             row += gridDim.y){
+
+        // Thread-Local sum
+        float mySqSum = 0.0;
 
         // Strided reduction of squared values across columns
         for(int col  = icol;
@@ -79,7 +108,7 @@ __global__ void calcSquareSumVector(float *srcMatrix,
 
             // Store result
             if(laneId == 0){
-                sqSumVector[row*gridDim.x+blockIdx.x] = blkSqSum;
+                sqSumVector[row] = blkSqSum;
             }
         }
     }

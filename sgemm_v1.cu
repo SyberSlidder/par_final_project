@@ -474,6 +474,7 @@ __global__ void combinedSGEMM_v4(
        float * _C, // Global pointer to write out result of A*B
        float * sqSumVecA, // M x 1 matrix derived from A
        float * sqSumVecB, // N x 1 matrix derived from B
+       float * _W, // Weight vector
        int M, // Number rows of A
        int N, // Number of columns of B
        int K  // Columns A, rows B
@@ -667,19 +668,29 @@ __global__ void combinedSGEMM_v4(
     B2_Holder.w = sqSumVecB[sqSumVecB_index+7];
 
     
+    // Load 8 elements from the weight vector
+    float weights[8];
+    float * weightPtr = _W + C_column;
+    float4 w1,w2;
+    w1 = (*(float4 *)(weightPtr));
+    w2 = (*(float4 *)(weightPtr+4)); 
+    
     // By Row
     #pragma unroll
     for (int i = 0; i < 8; i++) {
-	C_holder[0].x = exp(2.0f*partialSums[i][0] + A_Holder.x + B_Holder.x);
-	C_holder[0].y = exp(2.0f*partialSums[i][1]+ A_Holder.y + B_Holder.y);
-	C_holder[0].z = exp(2.0f*partialSums[i][2]+ A_Holder.z + B_Holder.z);
-	C_holder[0].w = exp(2.0f*partialSums[i][3]+ A_Holder.w + B_Holder.w);
-	*((float4 *)(_C + (C_row+i)*N + C_column)) = C_holder[0];
-	C_holder[1].x = exp(2.0f*partialSums[i][4] + A2_Holder.x + B2_Holder.x);
-	C_holder[1].y = exp(2.0f*partialSums[i][5] + A2_Holder.y + B2_Holder.y);
-	C_holder[1].z = exp(2.0f*partialSums[i][6] + A2_Holder.z + B2_Holder.z);
-	C_holder[1].w = exp(2.0f*partialSums[i][7] + A2_Holder.w + B2_Holder.w);
-	*((float4 *)(_C + (C_row+i)*N + C_column + 4)) = C_holder[1];
+	float rowSum = 0.0f;
+	rowSum += w1.x * exp(2.0f*partialSums[i][0] + A_Holder.x + B_Holder.x);
+	rowSum += w1.y * exp(2.0f*partialSums[i][1]+ A_Holder.y + B_Holder.y);
+	rowSum += w1.z * exp(2.0f*partialSums[i][2]+ A_Holder.z + B_Holder.z);
+	rowSum += w1.w * exp(2.0f*partialSums[i][3]+ A_Holder.w + B_Holder.w);
+	rowSum += w2.x * exp(2.0f*partialSums[i][4] + A2_Holder.x + B2_Holder.x);
+	rowSum += w2.y * exp(2.0f*partialSums[i][5] + A2_Holder.y + B2_Holder.y);
+	rowSum += w2.z * exp(2.0f*partialSums[i][6] + A2_Holder.z + B2_Holder.z);
+	rowSum += w2.w * exp(2.0f*partialSums[i][7] + A2_Holder.w + B2_Holder.w);
+	
+	//*((float4 *)(_C + (C_row+i)*N + C_column)) = C_holder[0];
+	//*((float4 *)(_C + (C_row+i)*N + C_column + 4)) = C_holder[1];
+	*(_C + (C_row+i)*N + C_column) = rowSum;
     }
     
 }
