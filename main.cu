@@ -241,7 +241,7 @@ int main(int argc, char * argv[]) {
 	  gridSize2.y = 8;
 	  gridSize2.z = 1;
 	  
-	  MaxwellCombinedSGEMM_v1<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,M,N,K);
+	  MaxwellCombinedSGEMM_v2<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,M,N,K);
 
 	  if (cudaGetLastError() != CUDA_SUCCESS) {
 	    printf("Error in the kernel evaluation.\n");

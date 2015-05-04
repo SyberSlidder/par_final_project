@@ -1,5 +1,5 @@
 CC=nvcc
-CFLAGS=-O3 -I. -Linplace -linplace -arch=sm_52
+CFLAGS= -O0 -I. -Linplace -linplace -arch=sm_52
 OUT_NAME=cuda_out
 FILES = main.cu \
 	sgemm_v1.cu \
