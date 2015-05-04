@@ -117,6 +117,11 @@ __global__ void MaxwellCombinedSGEMM_v1(
 	
 }
 
+union dlbFloat4 {
+  float4 wideFloats[2];
+  float  elem[8];
+};
+
 __global__ void MaxwellCombinedSGEMM_v2(
        float * _A, // Global pointer to matrix A 
        float * _B, // Global pointer to matrix B
@@ -166,24 +171,35 @@ __global__ void MaxwellCombinedSGEMM_v2(
 	
 	// Loop through the K dimension of Matrices A and B
 	// We are operating out of a 64 x 16 chunk of A/B
+	int columnStart = (linearThreadID >> 3) & 0x03;
+	int rowStart = warpID * 8;
+	
+	dlbFloat4 aHolder;
+	
 	for (int i = 0; i < (K/8); i++) {
 	    
-		// Load from A into SM
-		//float4 aHolder1 = *((float4 *)(aReadPtr));
-		//float4 aHolder2 = *((float4 *)(aReadPtr + 4));
-	  
-		//smA[][]
+		// Load from A into register
+		aHolder.wideFloats[0] = *((float4 *)(aReadPtr));
+		aHolder.wideFloats[1] = *((float4 *)(aReadPtr + 4));
+		// Store the transpose in shared memory
+		int storeAOffset = linearThreadID % 8;
+		for (int trackElement = 0; trackElement < 8; trackElement++) {
+		      smA[rowStart + trackElement][columnStart + storeAOffset] = aHolder.elem[trackElement];
+		      storeAOffset = (storeAOffset + 1 ) % 8;
+		}
 		
 		// Load from B into SM
 		
 		// Update pointers
 				
+		// Wait for everyone to finish their loads
+		__syncthreads();
+				
 		// Grab 1 8-element track from A and 1 8-elemnt track from B
 		// 8 tracks total from A, 8 tracks total from B
 
 		int offSet = linearThreadID % 8;
-		int columnStart = (linearThreadID >> 3) & 0x03;
-		int rowStart = warpID * 8;
+		
 		for (int trackNum = 0; trackNum < 8; trackNum++) {
 		
 			// Load Track from A into track1
