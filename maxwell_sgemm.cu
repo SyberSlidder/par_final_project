@@ -191,6 +191,7 @@ __global__ void MaxwellCombinedSGEMM_v2(
 		// Load from B into SM
 		
 		// Update pointers
+		aReadPtr += 8;
 				
 		// Wait for everyone to finish their loads
 		__syncthreads();
