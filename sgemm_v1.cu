@@ -117,8 +117,7 @@ __global__ void combinedSGEMM_v1(
  
 }
 
-#define MAXWELL_MICROTILE_SIZE 8
-#define B_TRANSPOSE true
+
 
 __global__ void combinedSGEMM_v2(
        float * _A, // Global pointer to matrix A 

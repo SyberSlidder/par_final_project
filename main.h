@@ -21,6 +21,9 @@ using namespace std;
 #define RANDOM_SEED false
 #define RAND_SEED 100
 
+#define MAXWELL_MICROTILE_SIZE 8
+#define B_TRANSPOSE true
+
 // Definitions of each Kernel
 
 // warpReduce Kernel
