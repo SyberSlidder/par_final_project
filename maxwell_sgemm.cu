@@ -117,7 +117,7 @@ __global__ void MaxwellCombinedSGEMM_v1(
 	
 }
 
-union dlbFloat4 {
+union dblFloat4 {
   float4 wideFloats[2];
   float  elem[8];
 };
@@ -174,21 +174,23 @@ __global__ void MaxwellCombinedSGEMM_v2(
 	int columnStart = (linearThreadID >> 3) & 0x03;
 	int rowStart = warpID * 8;
 	
-	dlbFloat4 aHolder;
+	dblFloat4 aHolder;
+	dblFloat4 bHolder;
 	
 	for (int i = 0; i < (K/8); i++) {
 	    
 		// Load from A into register
 		aHolder.wideFloats[0] = *((float4 *)(aReadPtr));
 		aHolder.wideFloats[1] = *((float4 *)(aReadPtr + 4));
-		// Store the transpose in shared memory
+		// Fix the bank and store down a row
 		int storeAOffset = linearThreadID % 8;
 		for (int trackElement = 0; trackElement < 8; trackElement++) {
 		      smA[rowStart + trackElement][columnStart + storeAOffset] = aHolder.elem[trackElement];
 		      storeAOffset = (storeAOffset + 1 ) % 8;
 		}
 		
-		// Load from B into SM
+		// Load from B into register
+		
 		
 		// Update pointers
 		aReadPtr += 8;
@@ -199,15 +201,19 @@ __global__ void MaxwellCombinedSGEMM_v2(
 		// Grab 1 8-element track from A and 1 8-elemnt track from B
 		// 8 tracks total from A, 8 tracks total from B
 
-		int offSet = linearThreadID % 8;
+		//int offSet = linearThreadID % 8;
 		
 		for (int trackNum = 0; trackNum < 8; trackNum++) {
 		
 			// Load Track from A into track1
 			// Reads down a track
 			
+			// Fix row and change banks when reading A from shared memory
+			int offSet = linearThreadID % 8;
 			for (int trackElement = 0; trackElement < 8; trackElement++) {
-			    track1[trackElement] = smA[rowStart + trackElement][offSet + columnStart];
+			    //track1[trackElement] = smA[rowStart + trackElement][offSet + columnStart];
+			    track1[offSet] = smA[rowStart + trackNum][columnStart + offSet];
+			    offSet = (offSet + 1) % 8;
 			}
 			
 			for (int trackElement = 0; trackElement < 8; trackElement++) {
@@ -231,7 +237,7 @@ __global__ void MaxwellCombinedSGEMM_v2(
 			}
 			
 			// Move to the next track
-			offSet = (offSet + 1) % 8;
+			//offSet = (offSet + 1) % 8;
 			
 		}
 		
