@@ -160,14 +160,14 @@ __global__ void MaxwellCombinedSGEMM_v2(
 	int linearThreadID = threadIdx.x + (blockDim.x * threadIdx.y);
 	int warpID = linearThreadID / 32;
 	
-	
-	
 	// Where to read from in A
 	int loadRowA = ((blockDim.y*8) * blockIdx.y) + linearThreadID;
 	float * aReadPtr = _A + (loadRowA * K);
 	// Where to read from in B
-	int loadRowB = (blockDim.y*8) * blockIdx.y;
-	float * bReadPtr = _B + (loadRowB * K);
+	int loadRowB = (blockDim.y*8) + (linearThreadID / 8);
+	int bColumnOffset = (blockDim.x*blockIdx.x*8) + (8*threadIdx.x);
+	float * bReadPtr = _B + (loadRowB * N) + bColumnOffset;
+	
 	
 	// Loop through the K dimension of Matrices A and B
 	// We are operating out of a 64 x 16 chunk of A/B
@@ -190,10 +190,17 @@ __global__ void MaxwellCombinedSGEMM_v2(
 		}
 		
 		// Load from B into register
+		bHolder.wideFloats[0] = *((float4 *)(bReadPtr));
+		bHolder.wideFloats[1] = *((float4 *)(bReadPtr + 4));
+		// Fix the bank and store down a row when storing B
 		
+		for (int trackElement = 0; trackElement < 8 ; trackElement++) {
+
+		}
 		
 		// Update pointers
 		aReadPtr += 8;
+		bReadPtr += 8*N;
 				
 		// Wait for everyone to finish their loads
 		__syncthreads();
