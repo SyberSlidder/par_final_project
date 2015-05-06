@@ -223,8 +223,9 @@ __global__ void MaxwellCombinedSGEMM_v2(
 			    offSet = (offSet + 1) % 8;
 			}
 			
+			// Fix the bank and read down a row
 			for (int trackElement = 0; trackElement < 8; trackElement++) {
-			    track2[trackElement] = smB[rowStart + trackElement][offSet + columnStart];
+			    track2[trackElement] = smB[rowStart + trackElement][rowStart + trackNum];
 			}
 			// Load Track from B into track2
 			
