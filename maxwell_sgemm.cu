@@ -225,7 +225,7 @@ __global__ void MaxwellCombinedSGEMM_v2(
 			
 			// Fix the bank and read down a row
 			for (int trackElement = 0; trackElement < 8; trackElement++) {
-			    track2[trackElement] = smB[rowStart + trackElement][rowStart + trackNum];
+			    track2[trackElement] = smB[rowStart + trackElement][columnStart + trackNum];
 			}
 			// Load Track from B into track2
 			
