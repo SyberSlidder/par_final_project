@@ -24,6 +24,8 @@ using namespace std;
 #define MAXWELL_MICROTILE_SIZE 8
 #define B_TRANSPOSE true
 
+#define GEMM_ONLY true
+
 // Definitions of each Kernel
 
 // warpReduce Kernel
@@ -106,7 +108,8 @@ __global__ void MaxwellCombinedSGEMM_v2(
        float * _C, // Global pointer to write out result of A*B
        float * sqSumVecA, // M x 1 matrix derived from A
        float * sqSumVecB, // N x 1 matrix derived from B
-       int M, // Number rows of A
+       float * _W, // Weight vector
+	 int M, // Number rows of A
        int N, // Number of columns of B
        int K  // Columns A, rows B
 );

@@ -128,7 +128,8 @@ __global__ void MaxwellCombinedSGEMM_v2(
        float * _C, // Global pointer to write out result of A*B
        float * sqSumVecA, // M x 1 matrix derived from A
        float * sqSumVecB, // N x 1 matrix derived from B
-       int M, // Number rows of A
+       float * _W, // Weight vector
+	 int M, // Number rows of A
        int N, // Number of columns of B
        int K  // Columns A, rows B
 )
@@ -185,17 +186,16 @@ __global__ void MaxwellCombinedSGEMM_v2(
 		// Fix the bank and store down a row
 		int storeAOffset = linearThreadID % 8;
 		for (int trackElement = 0; trackElement < 8; trackElement++) {
-		      smA[rowStart + trackElement][columnStart + storeAOffset] = aHolder.elem[trackElement];
-		      storeAOffset = (storeAOffset + 1 ) % 8;
+		      smA[rowStart + trackElement][linearThreadID % 32] = aHolder.elem[trackElement];
+		      //storeAOffset = (storeAOffset + 1 ) % 8;
 		}
 		
 		// Load from B into register
 		bHolder.wideFloats[0] = *((float4 *)(bReadPtr));
 		bHolder.wideFloats[1] = *((float4 *)(bReadPtr + 4));
 		// Fix the bank and store down a row when storing B
-		
 		for (int trackElement = 0; trackElement < 8 ; trackElement++) {
-
+			smB[rowStart + trackElement][linearThreadID % 32] = bHolder.elem[trackElement]; 
 		}
 		
 		// Update pointers
@@ -254,10 +254,23 @@ __global__ void MaxwellCombinedSGEMM_v2(
 	int C_row = loadRowA;
 	int C_column = loadRowB;
 	
-	for (int i = 0; i < 8; i++) {
-	  for (int j = 0; j < 8; j++) {
-	    _C[(C_row+i)*N + C_column+j] = cVal[i][j];
-	  }
+	if (GEMM_ONLY) {
+		for (int i = 0; i < 8; i++) {
+			for (int j = 0; j < 8; j++) {
+				_C[(C_row+i)*N + C_column+j] = cVal[i][j];
+			}
+		}
+	} else {
+		// Load 8 elements from the weight vector
+		float weights[8];
+		float * weightPtr = _W + C_column;
+		float4 w1,w2;
+		w1 = (*(float4 *)(weightPtr));
+		w2 = (*(float4 *)(weightPtr+4)); 		
+		
+		
+		
+		
 	}
 	
 }

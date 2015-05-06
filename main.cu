@@ -244,7 +244,7 @@ int main(int argc, char * argv[]) {
 	  inplace::transpose(true,devB,K,N);
 	  callSquareSumVector(devA,devSqSumVecA,M,K,deviceProp.maxGridSize[1]);
 	  callSquareSumVector(devB,devSqSumVecB,N,K,deviceProp.maxGridSize[1]);
-	  MaxwellCombinedSGEMM_v2<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,M,N,K);
+	  MaxwellCombinedSGEMM_v2<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,devW,M,N,K);
 
 	  if (cudaGetLastError() != CUDA_SUCCESS) {
 	    printf("Error in the kernel evaluation.\n");
