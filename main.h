@@ -86,6 +86,7 @@ __global__ void combinedSGEMM_v4(
        float * sqSumVecA, // M x 1 matrix derived from A
        float * sqSumVecB, // N x 1 matrix derived from B
        float * _W, // Weight vector
+       float * result, // result vector
        int M, // Number rows of A
        int N, // Number of columns of B
        int K  // Columns A, rows B
