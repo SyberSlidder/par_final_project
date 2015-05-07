@@ -19,6 +19,8 @@ int main(int argc, char * argv[]) {
     float *hostC;
     float *hostSqSumVecA;
     float *hostSqSumVecB;
+    float *hostW;
+    float *hostRes;
     
     // Device pointers
     float *devA;
@@ -27,6 +29,7 @@ int main(int argc, char * argv[]) {
     float *devSqSumVecA;
     float *devSqSumVecB;
     float * devW;
+    float * devRes;
     
     // Kernel parameters
     dim3 gridSize;
@@ -76,6 +79,8 @@ int main(int argc, char * argv[]) {
 
     hostSqSumVecA = (float*)malloc(M*sizeof(float));
     hostSqSumVecB = (float*)malloc(N*sizeof(float));
+    hostW = (float*)malloc(N*sizeof(float));
+    hostRes = (float*)malloc(M*sizeof(float));
     
     // Allocate device memory
     cudaMalloc((void**)&devA, M*K*sizeof(float));
@@ -93,6 +98,8 @@ int main(int argc, char * argv[]) {
     cudaMemset(devSqSumVecB, 0, N*sizeof(float));
     
     cudaMalloc((void**)&devW, N*sizeof(float));
+    cudaMemset(devW, 1.1, N*sizeof(float));
+    cudaMalloc((void**)&devRes, N*sizeof(float));
     
     ////////////////////////////////////////////////
     //             DATA INITIALIZATION            //
@@ -116,7 +123,11 @@ int main(int argc, char * argv[]) {
         }
     }
     
+    for(int n=0 ; n < N; n++)
+	    hostW[n] =  (float)rand()/(float)(RAND_MAX/10);
+
     
+
     
     ////////////////////////////////////////////////
     //              KERNEL SUMMATION              //
@@ -125,6 +136,7 @@ int main(int argc, char * argv[]) {
     // Transfer host data to device
     cudaMemcpy(devA,hostA,M*K*sizeof(float),cudaMemcpyHostToDevice);
     cudaMemcpy(devB,hostB,K*N*sizeof(float),cudaMemcpyHostToDevice);
+    cudaMemcpy(devW,hostW,N*sizeof(float),cudaMemcpyHostToDevice);
     
     // Calculate grid and block size
     gridSize.x = (N + 1)/THREADS_PER_BLOCK_X;
@@ -221,13 +233,14 @@ int main(int argc, char * argv[]) {
 	  gridSize2.y = 8;
 	  gridSize2.z = 1;
 
-	  callSquareSumVector(devA,devSqSumVecA,M,K,deviceProp.maxGridSize[1]);
-	  callSquareSumVector(devB,devSqSumVecB,N,K,deviceProp.maxGridSize[1]);
-	  
-	  combinedSGEMM_v4<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,devW,M,N,K);
+          //inplace::transpose(true,devB,K,N);
+          //callSquareSumVector(devA,devSqSumVecA,M,K,deviceProp.maxGridSize[1]);
+          //callSquareSumVector(devB,devSqSumVecB,N,K,deviceProp.maxGridSize[1]);
+
+	  combinedSGEMM_v4<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,devW,devRes,M,N,K);
 
 	  if (cudaGetLastError() != CUDA_SUCCESS) {
-	    printf("Error in the kernel evaluation.\n");
+	    printf("Error in the kernel evaluation. %s \n");
 	    exit(-1);
 	  }
 	  
@@ -261,9 +274,13 @@ int main(int argc, char * argv[]) {
     cudaMemcpy(hostSqSumVecA,devSqSumVecA,M*sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(hostSqSumVecB,devSqSumVecB,N*sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(hostC,devC,M*N*sizeof(float),cudaMemcpyDeviceToHost);
+    cudaMemcpy(hostRes,devRes,M*N*sizeof(float),cudaMemcpyDeviceToHost);
     
     for (int index = 0; index != 16; index++) {
-      printf("%d: %f\n",index,hostC[index]);
+      printf("C %d: %f\n",index,hostC[index]);
+    }
+    for (int index = 0; index != 16; index++) {
+      printf("res %d: %f\n",index,hostRes[index]);
     }
     
     ////////////////////////////////////////////////
