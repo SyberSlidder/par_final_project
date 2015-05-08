@@ -482,8 +482,8 @@ __global__ void combinedSGEMM_v4(
 ) {
   __shared__ float sharedA1[8][64];
   __shared__ float sharedA2[8][64];
-  __shared__ float sharedB1[8][64];
-  __shared__ float sharedB2[8][64];
+  __shared__ float sharedB1[16][32];
+  __shared__ float sharedB2[16][32];
 
     // Identification
     int linearThreadID = threadIdx.x + (blockDim.x * threadIdx.y);
@@ -493,7 +493,7 @@ __global__ void combinedSGEMM_v4(
     loadRowA += linearThreadID; // Which row of A this thread is responsible for loading
     
     float * a1ReadPtr = _A + (loadRowA * K);
-    float * a2ReadPtr = a1ReadPtr;
+    float * a2ReadPtr = _A + (loadRowA * K);
     
     // Where do I read from B
     int loadRowB;
@@ -504,7 +504,7 @@ __global__ void combinedSGEMM_v4(
       loadRowB = blockIdx.y * (blockDim.y*8);
       loadRowB += linearThreadID;
       b1ReadPtr = _B + (loadRowB * K);
-      b2ReadPtr = b1ReadPtr;
+      b2ReadPtr = _B + (loadRowB * K);
     } else {
 
       
@@ -541,22 +541,24 @@ __global__ void combinedSGEMM_v4(
       sharedA1[5][linearThreadID] = A_Holder.y;
       sharedA1[6][linearThreadID] = A_Holder.z;
       sharedA1[7][linearThreadID] = A_Holder.w;
+      a1ReadPtr += 4;
 
       // Load from B into B1
       //sharedB1[linearThreadID] = *((float4 *)b1ReadPtr);
       B_Holder = *((float4 *)b1ReadPtr); //B_Holder is a float4 type, store its x,y,z,w in vertically in sharedB1
-      sharedB1[0][linearThreadID] = B_Holder.x;
-      sharedB1[1][linearThreadID] = B_Holder.y;
-      sharedB1[2][linearThreadID] = B_Holder.z;
-      sharedB1[3][linearThreadID] = B_Holder.w;
+      int col = (linearThreadID/8) * 4 + linearThreadID%4;
+      int row = (((linearThreadID/4) & 0x01) == 0) ? 0 : 8;
+      sharedB1[row+0][col] = B_Holder.x;
+      sharedB1[row+1][col] = B_Holder.y;
+      sharedB1[row+2][col]= B_Holder.z;
+      sharedB1[row+3][col]= B_Holder.w;
       b1ReadPtr += 4;
       B_Holder = *((float4 *)b1ReadPtr); //B_Holder is a float4 type, store its x,y,z,w in vertically in sharedB1
-      sharedB1[4][linearThreadID] = B_Holder.x;
-      sharedB1[5][linearThreadID] = B_Holder.y;
-      sharedB1[6][linearThreadID] = B_Holder.z;
-      sharedB1[7][linearThreadID] = B_Holder.w;
-
-      
+      sharedB1[row+4][col] = B_Holder.x;
+      sharedB1[row+5][col] = B_Holder.y;
+      sharedB1[row+6][col] = B_Holder.z;
+      sharedB1[row+7][col] = B_Holder.w;
+      b1ReadPtr += 4;
       __syncthreads();
     // Loop through the K dimension of Matrices A and B
     for (int i = 0; i < K/8; i++) {
@@ -576,33 +578,46 @@ __global__ void combinedSGEMM_v4(
       sharedA2[5][linearThreadID] = A_Holder.y;
       sharedA2[6][linearThreadID] = A_Holder.z;
       sharedA2[7][linearThreadID] = A_Holder.w;
+      a2ReadPtr += 4;
 
       // Load from B into B2
       B_Holder = *((float4 *)b2ReadPtr); //B_Holder is a float4 type, store its x,y,z,w in vertically in sharedB2
-      sharedB2[0][linearThreadID] = B_Holder.x;
-      sharedB2[1][linearThreadID] = B_Holder.y;
-      sharedB2[2][linearThreadID] = B_Holder.z;
-      sharedB2[3][linearThreadID] = B_Holder.w;
+      sharedB2[0+row][col] = B_Holder.x;
+      sharedB2[1+row][col] = B_Holder.y;
+      sharedB2[2+row][col] = B_Holder.z;
+      sharedB2[3+row][col] = B_Holder.w;
       b2ReadPtr += 4;
       B_Holder = *((float4 *)b2ReadPtr); //B_Holder is a float4 type, store its x,y,z,w in vertically in sharedB2
-      sharedB2[4][linearThreadID] = B_Holder.x;
-      sharedB2[5][linearThreadID] = B_Holder.y;
-      sharedB2[6][linearThreadID] = B_Holder.z;
-      sharedB2[7][linearThreadID] = B_Holder.w;
+      sharedB2[4+row][col] = B_Holder.x;
+      sharedB2[5+row][col] = B_Holder.y;
+      sharedB2[6+row][col] = B_Holder.z;
+      sharedB2[7+row][col] = B_Holder.w;
+      b2ReadPtr += 4;
       
-      __syncthreads();
       // Compute from A1/B1
       rowSelect    = 8*threadIdx.y;
-      colSelect    = 8*threadIdx.x;
-      #pragma unroll
+      colSelect    = 4*threadIdx.x;
       for(int track = 0; track < 8; track++){
-	for(int j= 0; j<8; j++)
-	    for(int k=0; k<8; k++)
+ 	for(int j= 0; j<8; j++){
+      		#pragma unroll
+	    for(int k=0; k<4; k++)
 		partialSums[j][k] += sharedA1[track][rowSelect+j] * sharedB1[track][colSelect+k];	
+		//if(linearThreadID == 1)printf("partialSums[%d][%d] += A1[%d][%d]*B1[%d][%d]\n",j,k,track,rowSelect+j,track,colSelect+k);}
+      		#pragma unroll
+	    for(int k=4; k<8; k++)
+		partialSums[j][k] += sharedA1[track][rowSelect+j] * sharedB1[track+8][colSelect+k-4];	
+		//if(linearThreadID == 1)printf("partialSums[%d][%d] += A1[%d][%d]*B1[%d][%d]\n",j,k,track,rowSelect+j,track+8,colSelect+k-4);}
+	}
       }
+/*
+	for(int j=0; j< 8; j++)
+	    for(int k=0; k<8; k++)
+		printf("i=%d	partialsum[%d][%d] = %f\n",i,j,k,partialSums[j][k]);
+*/
       i++;
+      __syncthreads();
 
-      if(i < K/8){
+      if((i+1) < K/8){
       // Load from A into A1
       //sharedA1[linearThreadID] = *((float4 *)a1ReadPtr);
       // Update pointers
@@ -619,46 +634,56 @@ __global__ void combinedSGEMM_v4(
       sharedA1[5][linearThreadID] = A_Holder.y;
       sharedA1[6][linearThreadID] = A_Holder.z;
       sharedA1[7][linearThreadID] = A_Holder.w;
+      a1ReadPtr += 4;
 
       // Load from B into B1
       //sharedB1[linearThreadID] = *((float4 *)b1ReadPtr);
       B_Holder = *((float4 *)b1ReadPtr); //B_Holder is a float4 type, store its x,y,z,w in vertically in sharedB1
-      sharedB1[0][linearThreadID] = B_Holder.x;
-      sharedB1[1][linearThreadID] = B_Holder.y;
-      sharedB1[2][linearThreadID] = B_Holder.z;
-      sharedB1[3][linearThreadID] = B_Holder.w;
+      sharedB1[0+row][col] = B_Holder.x;
+      sharedB1[1+row][col] = B_Holder.y;
+      sharedB1[2+row][col] = B_Holder.z;
+      sharedB1[3+row][col] = B_Holder.w;
       b1ReadPtr += 4;
       B_Holder = *((float4 *)b1ReadPtr); //B_Holder is a float4 type, store its x,y,z,w in vertically in sharedB1
-      sharedB1[4][linearThreadID] = B_Holder.x;
-      sharedB1[5][linearThreadID] = B_Holder.y;
-      sharedB1[6][linearThreadID] = B_Holder.z;
-      sharedB1[7][linearThreadID] = B_Holder.w;
-
-      __syncthreads();
+      sharedB1[4+row][col] = B_Holder.x;
+      sharedB1[5+row][col] = B_Holder.y;
+      sharedB1[6+row][col] = B_Holder.z;
+      sharedB1[7+row][col] = B_Holder.w;
+      b1ReadPtr += 4;
+      //printf("load next A1 B1\n");
       }
       // Compute from A2/B2
-      rowSelect    = 8*threadIdx.y;
-      colSelect    = 8*threadIdx.x;
-      #pragma unroll
+      //rowSelect    = 8*threadIdx.y;
+      //colSelect    = 4*threadIdx.x;
       for(int track = 0; track < 8; track++){
-	for(int j= 0; j< 8; j++)
-	    for(int k=0; k<8; k++)
+	for(int j= 0; j< 8; j++){
+      		#pragma unroll
+	    for(int k=0; k<4; k++)
 		partialSums[j][k] += sharedA2[track][rowSelect+j] * sharedB2[track][colSelect+k];	
+      		#pragma unroll
+	    for(int k=4; k<8; k++)
+		partialSums[j][k] += sharedA2[track][rowSelect+j] * sharedB2[track+8][colSelect+k-4];	
+	}
       }
-     
+
+/*	for(int j=0; j< 8; j++)
+	    for(int k=0; k<8; k++)
+		printf("i=%d	partialsum2[%d][%d] = %f\n",i,j,k,partialSums[j][k]);
+*/
+      __syncthreads();
+
     } // End of SGEMM
   
-      __syncthreads();
     // Write back C
-    int C_row = loadRowA;
-    int C_column = loadRowB;
-    
+    int C_row = blockIdx.y * (blockDim.y * 8) + threadIdx.y * 8;
+    int C_column = blockIdx.x * (blockDim.x * 8) + threadIdx.x * 8;
+    //printf("thread (%d,%d)	C[%d][%d]\n",threadIdx.x, threadIdx.y ,C_row,C_column);
     for (int i = 0; i < 8; i++) {
       for (int j = 0; j < 8; j++) {
 	_C[(C_row+i)*N + C_column+j] = partialSums[i][j];
+	//printf("C[%d][%d] = %f\n",C_row+i,C_column+j,partialSums[i][j]);
       }
     }
-    
 /*    
     float4 C_holder[2];
     C_row    = (blockIdx.y * (blockDim.y*8)) + (8*threadIdx.y);
