@@ -502,7 +502,9 @@ __global__ void combinedSGEMM_v4(
     
     if (B_TRANSPOSE) {
       loadRowB = blockIdx.y * (blockDim.y*8);
-      loadRowB += linearThreadID;
+      int readRow = (linearThreadID<32) ? (linearThreadID%4 + (linearThreadID/4)*8) : ((linearThreadID%32)%4 + 4 + (linearThreadID%32)/4 *8); // this pattern avoid shared store bank conflict
+      //printf("thread %d: read row %d\n", linearThreadID, readRow);
+      loadRowB += readRow;
       b1ReadPtr = _B + (loadRowB * K);
       b2ReadPtr = _B + (loadRowB * K);
     } else {
@@ -525,6 +527,7 @@ __global__ void combinedSGEMM_v4(
 		  
     float4 A_Holder;
     float4 B_Holder;
+    float4 A2_Holder,B2_Holder;
     int rowSelect;
     int colSelect;
     
@@ -546,8 +549,13 @@ __global__ void combinedSGEMM_v4(
       // Load from B into B1
       //sharedB1[linearThreadID] = *((float4 *)b1ReadPtr);
       B_Holder = *((float4 *)b1ReadPtr); //B_Holder is a float4 type, store its x,y,z,w in vertically in sharedB1
+      int row = (linearThreadID < 32) ? 0 : 8;
+      int col = linearThreadID % 32;
+      //printf("thread %d : [%d][%d]\n", linearThreadID, row, col);
+/*
       int col = (linearThreadID/8) * 4 + linearThreadID%4;
       int row = (((linearThreadID/4) & 0x01) == 0) ? 0 : 8;
+*/
       sharedB1[row+0][col] = B_Holder.x;
       sharedB1[row+1][col] = B_Holder.y;
       sharedB1[row+2][col]= B_Holder.z;
@@ -559,6 +567,7 @@ __global__ void combinedSGEMM_v4(
       sharedB1[row+6][col] = B_Holder.z;
       sharedB1[row+7][col] = B_Holder.w;
       b1ReadPtr += 4;
+
       __syncthreads();
     // Loop through the K dimension of Matrices A and B
     for (int i = 0; i < K/8; i++) {
@@ -598,16 +607,88 @@ __global__ void combinedSGEMM_v4(
       rowSelect    = 8*threadIdx.y;
       colSelect    = 4*threadIdx.x;
       for(int track = 0; track < 8; track++){
+/*
+	A_Holder = *((float4*)(&sharedA1[track][rowSelect]));
+	A2_Holder = *((float4*)(&sharedA1[track][rowSelect+4]));
+	B_Holder =  *((float4*)(&sharedB1[track][colSelect]));
+	B2_Holder =  *((float4*)(&sharedB1[track+8][colSelect]));
+        //printf("thread%d	x: %f == %f; y: %f == %f; z: %f == %f; w: %f == %f\n",linearThreadID, A_Holder.x, sharedA1[track][rowSelect], A_Holder.y, sharedA1[track][rowSelect+1], A_Holder.z, sharedA1[track][rowSelect+2], A_Holder.w, sharedA1[track][rowSelect+3]  );
+        partialSums[0][0] += A_Holder.x *  B_Holder.x;
+        partialSums[0][1] += A_Holder.x *  B_Holder.y;
+        partialSums[0][2] += A_Holder.x *  B_Holder.w;
+        partialSums[0][3] += A_Holder.x *  B_Holder.z;
+        partialSums[0][4] += A_Holder.x *  B2_Holder.x;
+        partialSums[0][5] += A_Holder.x *  B2_Holder.y;
+        partialSums[0][6] += A_Holder.x *  B2_Holder.z;
+        partialSums[0][7] += A_Holder.x *  B2_Holder.w;
+        partialSums[1][0] += A_Holder.y *  B_Holder.x;
+        partialSums[1][1] += A_Holder.y *  B_Holder.y;
+        partialSums[1][2] += A_Holder.y *  B_Holder.w;
+        partialSums[1][3] += A_Holder.y *  B_Holder.z;
+        partialSums[1][4] += A_Holder.y *  B2_Holder.x;
+        partialSums[1][5] += A_Holder.y *  B2_Holder.y;
+        partialSums[1][6] += A_Holder.y *  B2_Holder.z;
+        partialSums[1][7] += A_Holder.y *  B2_Holder.w;
+        partialSums[2][0] += A_Holder.z *  B_Holder.x;
+        partialSums[2][1] += A_Holder.z *  B_Holder.y;
+        partialSums[2][2] += A_Holder.z *  B_Holder.w;
+        partialSums[2][3] += A_Holder.z *  B_Holder.z;
+        partialSums[2][4] += A_Holder.z *  B2_Holder.x;
+        partialSums[2][5] += A_Holder.z *  B2_Holder.y;
+        partialSums[2][6] += A_Holder.z *  B2_Holder.z;
+        partialSums[2][7] += A_Holder.z *  B2_Holder.w;
+        partialSums[3][0] += A_Holder.w *  B_Holder.x;
+        partialSums[3][1] += A_Holder.w *  B_Holder.y;
+        partialSums[3][2] += A_Holder.w *  B_Holder.w;
+        partialSums[3][3] += A_Holder.w *  B_Holder.z;
+        partialSums[3][4] += A_Holder.w *  B2_Holder.x;
+        partialSums[3][5] += A_Holder.w *  B2_Holder.y;
+        partialSums[3][6] += A_Holder.w *  B2_Holder.z;
+        partialSums[3][7] += A_Holder.w *  B2_Holder.w;
+        partialSums[4][0] += A2_Holder.x *  B_Holder.x;
+        partialSums[4][1] += A2_Holder.x *  B_Holder.y;
+        partialSums[4][2] += A2_Holder.x *  B_Holder.w;
+        partialSums[4][3] += A2_Holder.x *  B_Holder.z;
+        partialSums[4][4] += A2_Holder.x *  B2_Holder.x;
+        partialSums[4][5] += A2_Holder.x *  B2_Holder.y;
+        partialSums[4][6] += A2_Holder.x *  B2_Holder.z;
+        partialSums[4][7] += A2_Holder.x *  B2_Holder.w;
+        partialSums[5][0] += A2_Holder.y *  B_Holder.x;
+        partialSums[5][1] += A2_Holder.y *  B_Holder.y;
+        partialSums[5][2] += A2_Holder.y *  B_Holder.w;
+        partialSums[5][3] += A2_Holder.y *  B_Holder.z;
+        partialSums[5][4] += A2_Holder.y *  B2_Holder.x;
+        partialSums[5][5] += A2_Holder.y *  B2_Holder.y;
+        partialSums[5][6] += A2_Holder.y *  B2_Holder.z;
+        partialSums[5][7] += A2_Holder.y *  B2_Holder.w;
+        partialSums[6][0] += A2_Holder.z *  B_Holder.x;
+        partialSums[6][1] += A2_Holder.z *  B_Holder.y;
+        partialSums[6][2] += A2_Holder.z *  B_Holder.w;
+        partialSums[6][3] += A2_Holder.z *  B_Holder.z;
+        partialSums[6][4] += A2_Holder.z *  B2_Holder.x;
+        partialSums[6][5] += A2_Holder.z *  B2_Holder.y;
+        partialSums[6][6] += A2_Holder.z *  B2_Holder.z;
+        partialSums[6][7] += A2_Holder.z *  B2_Holder.w;
+        partialSums[7][0] += A2_Holder.w *  B_Holder.x;
+        partialSums[7][1] += A2_Holder.w *  B_Holder.y;
+        partialSums[7][2] += A2_Holder.w *  B_Holder.w;
+        partialSums[7][3] += A2_Holder.w *  B_Holder.z;
+        partialSums[7][4] += A2_Holder.w *  B2_Holder.x;
+        partialSums[7][5] += A2_Holder.w *  B2_Holder.y;
+        partialSums[7][6] += A2_Holder.w *  B2_Holder.z;
+        partialSums[7][7] += A2_Holder.w *  B2_Holder.w;
+*/
  	for(int j= 0; j<8; j++){
       		#pragma unroll
 	    for(int k=0; k<4; k++)
 		partialSums[j][k] += sharedA1[track][rowSelect+j] * sharedB1[track][colSelect+k];	
-		//if(linearThreadID == 1)printf("partialSums[%d][%d] += A1[%d][%d]*B1[%d][%d]\n",j,k,track,rowSelect+j,track,colSelect+k);}
+		//if(linearThreadID == 1)printf("partialSums[%d][%d] += A1[%d][%d]*B1[%d][%d]\n",j,k,track,rowSelect+j,track,colSelect+k);
       		#pragma unroll
 	    for(int k=4; k<8; k++)
 		partialSums[j][k] += sharedA1[track][rowSelect+j] * sharedB1[track+8][colSelect+k-4];	
-		//if(linearThreadID == 1)printf("partialSums[%d][%d] += A1[%d][%d]*B1[%d][%d]\n",j,k,track,rowSelect+j,track+8,colSelect+k-4);}
+		//if(linearThreadID == 1)printf("partialSums[%d][%d] += A1[%d][%d]*B1[%d][%d]\n",j,k,track,rowSelect+j,track+8,colSelect+k-4);
 	}
+
       }
 /*
 	for(int j=0; j< 8; j++)
@@ -656,6 +737,77 @@ __global__ void combinedSGEMM_v4(
       //rowSelect    = 8*threadIdx.y;
       //colSelect    = 4*threadIdx.x;
       for(int track = 0; track < 8; track++){
+/*
+	A_Holder = *((float4*)(&sharedA2[track][rowSelect]));
+	A2_Holder = *((float4*)(&sharedA2[track][rowSelect+4]));
+	B_Holder =  *((float4*)(&sharedB2[track][colSelect]));
+	B2_Holder =  *((float4*)(&sharedB2[track+8][colSelect]));
+        //printf("thread%d	x: %f == %f; y: %f == %f; z: %f == %f; w: %f == %f\n",linearThreadID, A_Holder.x, sharedA1[track][rowSelect], A_Holder.y, sharedA1[track][rowSelect+1], A_Holder.z, sharedA1[track][rowSelect+2], A_Holder.w, sharedA1[track][rowSelect+3]  );
+        partialSums[0][0] += A_Holder.x *  B_Holder.x;
+        partialSums[0][1] += A_Holder.x *  B_Holder.y;
+        partialSums[0][2] += A_Holder.x *  B_Holder.w;
+        partialSums[0][3] += A_Holder.x *  B_Holder.z;
+        partialSums[0][4] += A_Holder.x *  B2_Holder.x;
+        partialSums[0][5] += A_Holder.x *  B2_Holder.y;
+        partialSums[0][6] += A_Holder.x *  B2_Holder.z;
+        partialSums[0][7] += A_Holder.x *  B2_Holder.w;
+        partialSums[1][0] += A_Holder.y *  B_Holder.x;
+        partialSums[1][1] += A_Holder.y *  B_Holder.y;
+        partialSums[1][2] += A_Holder.y *  B_Holder.w;
+        partialSums[1][3] += A_Holder.y *  B_Holder.z;
+        partialSums[1][4] += A_Holder.y *  B2_Holder.x;
+        partialSums[1][5] += A_Holder.y *  B2_Holder.y;
+        partialSums[1][6] += A_Holder.y *  B2_Holder.z;
+        partialSums[1][7] += A_Holder.y *  B2_Holder.w;
+        partialSums[2][0] += A_Holder.z *  B_Holder.x;
+        partialSums[2][1] += A_Holder.z *  B_Holder.y;
+        partialSums[2][2] += A_Holder.z *  B_Holder.w;
+        partialSums[2][3] += A_Holder.z *  B_Holder.z;
+        partialSums[2][4] += A_Holder.z *  B2_Holder.x;
+        partialSums[2][5] += A_Holder.z *  B2_Holder.y;
+        partialSums[2][6] += A_Holder.z *  B2_Holder.z;
+        partialSums[2][7] += A_Holder.z *  B2_Holder.w;
+        partialSums[3][0] += A_Holder.w *  B_Holder.x;
+        partialSums[3][1] += A_Holder.w *  B_Holder.y;
+        partialSums[3][2] += A_Holder.w *  B_Holder.w;
+        partialSums[3][3] += A_Holder.w *  B_Holder.z;
+        partialSums[3][4] += A_Holder.w *  B2_Holder.x;
+        partialSums[3][5] += A_Holder.w *  B2_Holder.y;
+        partialSums[3][6] += A_Holder.w *  B2_Holder.z;
+        partialSums[3][7] += A_Holder.w *  B2_Holder.w;
+        partialSums[4][0] += A2_Holder.x *  B_Holder.x;
+        partialSums[4][1] += A2_Holder.x *  B_Holder.y;
+        partialSums[4][2] += A2_Holder.x *  B_Holder.w;
+        partialSums[4][3] += A2_Holder.x *  B_Holder.z;
+        partialSums[4][4] += A2_Holder.x *  B2_Holder.x;
+        partialSums[4][5] += A2_Holder.x *  B2_Holder.y;
+        partialSums[4][6] += A2_Holder.x *  B2_Holder.z;
+        partialSums[4][7] += A2_Holder.x *  B2_Holder.w;
+        partialSums[5][0] += A2_Holder.y *  B_Holder.x;
+        partialSums[5][1] += A2_Holder.y *  B_Holder.y;
+        partialSums[5][2] += A2_Holder.y *  B_Holder.w;
+        partialSums[5][3] += A2_Holder.y *  B_Holder.z;
+        partialSums[5][4] += A2_Holder.y *  B2_Holder.x;
+        partialSums[5][5] += A2_Holder.y *  B2_Holder.y;
+        partialSums[5][6] += A2_Holder.y *  B2_Holder.z;
+        partialSums[5][7] += A2_Holder.y *  B2_Holder.w;
+        partialSums[6][0] += A2_Holder.z *  B_Holder.x;
+        partialSums[6][1] += A2_Holder.z *  B_Holder.y;
+        partialSums[6][2] += A2_Holder.z *  B_Holder.w;
+        partialSums[6][3] += A2_Holder.z *  B_Holder.z;
+        partialSums[6][4] += A2_Holder.z *  B2_Holder.x;
+        partialSums[6][5] += A2_Holder.z *  B2_Holder.y;
+        partialSums[6][6] += A2_Holder.z *  B2_Holder.z;
+        partialSums[6][7] += A2_Holder.z *  B2_Holder.w;
+        partialSums[7][0] += A2_Holder.w *  B_Holder.x;
+        partialSums[7][1] += A2_Holder.w *  B_Holder.y;
+        partialSums[7][2] += A2_Holder.w *  B_Holder.w;
+        partialSums[7][3] += A2_Holder.w *  B_Holder.z;
+        partialSums[7][4] += A2_Holder.w *  B2_Holder.x;
+        partialSums[7][5] += A2_Holder.w *  B2_Holder.y;
+        partialSums[7][6] += A2_Holder.w *  B2_Holder.z;
+        partialSums[7][7] += A2_Holder.w *  B2_Holder.w;
+*/
 	for(int j= 0; j< 8; j++){
       		#pragma unroll
 	    for(int k=0; k<4; k++)
@@ -664,6 +816,7 @@ __global__ void combinedSGEMM_v4(
 	    for(int k=4; k<8; k++)
 		partialSums[j][k] += sharedA2[track][rowSelect+j] * sharedB2[track+8][colSelect+k-4];	
 	}
+
       }
 
 /*	for(int j=0; j< 8; j++)
@@ -673,7 +826,7 @@ __global__ void combinedSGEMM_v4(
       __syncthreads();
 
     } // End of SGEMM
-  
+/*  
     // Write back C
     int C_row = blockIdx.y * (blockDim.y * 8) + threadIdx.y * 8;
     int C_column = blockIdx.x * (blockDim.x * 8) + threadIdx.x * 8;
@@ -684,17 +837,17 @@ __global__ void combinedSGEMM_v4(
 	//printf("C[%d][%d] = %f\n",C_row+i,C_column+j,partialSums[i][j]);
       }
     }
-/*    
+*/
+
     float4 C_holder[2];
-    C_row    = (blockIdx.y * (blockDim.y*8)) + (8*threadIdx.y);
-    C_column = (blockIdx.x * (blockDim.x*8)) + (8*threadIdx.x);
+    int C_row    = (blockIdx.y * (blockDim.y*8)) + (8*threadIdx.y);
+    int C_column = (blockIdx.x * (blockDim.x*8)) + (8*threadIdx.x);
     
     // Access A and B squared sums
     // Reuse the holders
     
     int sqSumVecA_index = (blockIdx.y*blockDim.y*8);
     int sqSumVecB_index = (blockIdx.x*blockDim.x*8);
-    float4 A2_Holder,B2_Holder;
     
     A_Holder.x = sqSumVecA[sqSumVecA_index];
     A_Holder.y = sqSumVecA[sqSumVecA_index+1];
@@ -754,10 +907,9 @@ __global__ void combinedSGEMM_v4(
 	atomicAdd(result+blockIdx.y*blockDim.y*8+linearThreadID, v);
 	// solution 2: store v back to memory resultMatrix[m][n/64], do matrix reduction later to get result[m]
 	/*
-	*resultMatrix(C_row*N/64+blockIdx.x) = v;
-    */
-    
-    
+	resultMatrix(C_row*N/64+blockIdx.x) = v;
+	*/
+
 }
 
 
