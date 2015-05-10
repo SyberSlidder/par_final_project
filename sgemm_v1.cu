@@ -572,8 +572,6 @@ __global__ void combinedSGEMM_v4(
     // Loop through the K dimension of Matrices A and B
     for (int i = 0; i < K/8; i++) {
       // Load from A into A2
-      //sharedA2[linearThreadID] = *((float4 *)a2ReadPtr);
-      //sharedB2[linearThreadID] = *((float4 *)b2ReadPtr);
       a2ReadPtr += 8;
       b2ReadPtr += 8;
       A_Holder = *((float4 *)a2ReadPtr); //A_Holder is a float4 type, store its x,y,z,w in vertically in sharedA2
@@ -607,77 +605,6 @@ __global__ void combinedSGEMM_v4(
       rowSelect    = 8*threadIdx.y;
       colSelect    = 4*threadIdx.x;
       for(int track = 0; track < 8; track++){
-/*
-	A_Holder = *((float4*)(&sharedA1[track][rowSelect]));
-	A2_Holder = *((float4*)(&sharedA1[track][rowSelect+4]));
-	B_Holder =  *((float4*)(&sharedB1[track][colSelect]));
-	B2_Holder =  *((float4*)(&sharedB1[track+8][colSelect]));
-        //printf("thread%d	x: %f == %f; y: %f == %f; z: %f == %f; w: %f == %f\n",linearThreadID, A_Holder.x, sharedA1[track][rowSelect], A_Holder.y, sharedA1[track][rowSelect+1], A_Holder.z, sharedA1[track][rowSelect+2], A_Holder.w, sharedA1[track][rowSelect+3]  );
-        partialSums[0][0] += A_Holder.x *  B_Holder.x;
-        partialSums[0][1] += A_Holder.x *  B_Holder.y;
-        partialSums[0][2] += A_Holder.x *  B_Holder.w;
-        partialSums[0][3] += A_Holder.x *  B_Holder.z;
-        partialSums[0][4] += A_Holder.x *  B2_Holder.x;
-        partialSums[0][5] += A_Holder.x *  B2_Holder.y;
-        partialSums[0][6] += A_Holder.x *  B2_Holder.z;
-        partialSums[0][7] += A_Holder.x *  B2_Holder.w;
-        partialSums[1][0] += A_Holder.y *  B_Holder.x;
-        partialSums[1][1] += A_Holder.y *  B_Holder.y;
-        partialSums[1][2] += A_Holder.y *  B_Holder.w;
-        partialSums[1][3] += A_Holder.y *  B_Holder.z;
-        partialSums[1][4] += A_Holder.y *  B2_Holder.x;
-        partialSums[1][5] += A_Holder.y *  B2_Holder.y;
-        partialSums[1][6] += A_Holder.y *  B2_Holder.z;
-        partialSums[1][7] += A_Holder.y *  B2_Holder.w;
-        partialSums[2][0] += A_Holder.z *  B_Holder.x;
-        partialSums[2][1] += A_Holder.z *  B_Holder.y;
-        partialSums[2][2] += A_Holder.z *  B_Holder.w;
-        partialSums[2][3] += A_Holder.z *  B_Holder.z;
-        partialSums[2][4] += A_Holder.z *  B2_Holder.x;
-        partialSums[2][5] += A_Holder.z *  B2_Holder.y;
-        partialSums[2][6] += A_Holder.z *  B2_Holder.z;
-        partialSums[2][7] += A_Holder.z *  B2_Holder.w;
-        partialSums[3][0] += A_Holder.w *  B_Holder.x;
-        partialSums[3][1] += A_Holder.w *  B_Holder.y;
-        partialSums[3][2] += A_Holder.w *  B_Holder.w;
-        partialSums[3][3] += A_Holder.w *  B_Holder.z;
-        partialSums[3][4] += A_Holder.w *  B2_Holder.x;
-        partialSums[3][5] += A_Holder.w *  B2_Holder.y;
-        partialSums[3][6] += A_Holder.w *  B2_Holder.z;
-        partialSums[3][7] += A_Holder.w *  B2_Holder.w;
-        partialSums[4][0] += A2_Holder.x *  B_Holder.x;
-        partialSums[4][1] += A2_Holder.x *  B_Holder.y;
-        partialSums[4][2] += A2_Holder.x *  B_Holder.w;
-        partialSums[4][3] += A2_Holder.x *  B_Holder.z;
-        partialSums[4][4] += A2_Holder.x *  B2_Holder.x;
-        partialSums[4][5] += A2_Holder.x *  B2_Holder.y;
-        partialSums[4][6] += A2_Holder.x *  B2_Holder.z;
-        partialSums[4][7] += A2_Holder.x *  B2_Holder.w;
-        partialSums[5][0] += A2_Holder.y *  B_Holder.x;
-        partialSums[5][1] += A2_Holder.y *  B_Holder.y;
-        partialSums[5][2] += A2_Holder.y *  B_Holder.w;
-        partialSums[5][3] += A2_Holder.y *  B_Holder.z;
-        partialSums[5][4] += A2_Holder.y *  B2_Holder.x;
-        partialSums[5][5] += A2_Holder.y *  B2_Holder.y;
-        partialSums[5][6] += A2_Holder.y *  B2_Holder.z;
-        partialSums[5][7] += A2_Holder.y *  B2_Holder.w;
-        partialSums[6][0] += A2_Holder.z *  B_Holder.x;
-        partialSums[6][1] += A2_Holder.z *  B_Holder.y;
-        partialSums[6][2] += A2_Holder.z *  B_Holder.w;
-        partialSums[6][3] += A2_Holder.z *  B_Holder.z;
-        partialSums[6][4] += A2_Holder.z *  B2_Holder.x;
-        partialSums[6][5] += A2_Holder.z *  B2_Holder.y;
-        partialSums[6][6] += A2_Holder.z *  B2_Holder.z;
-        partialSums[6][7] += A2_Holder.z *  B2_Holder.w;
-        partialSums[7][0] += A2_Holder.w *  B_Holder.x;
-        partialSums[7][1] += A2_Holder.w *  B_Holder.y;
-        partialSums[7][2] += A2_Holder.w *  B_Holder.w;
-        partialSums[7][3] += A2_Holder.w *  B_Holder.z;
-        partialSums[7][4] += A2_Holder.w *  B2_Holder.x;
-        partialSums[7][5] += A2_Holder.w *  B2_Holder.y;
-        partialSums[7][6] += A2_Holder.w *  B2_Holder.z;
-        partialSums[7][7] += A2_Holder.w *  B2_Holder.w;
-*/
  	for(int j= 0; j<8; j++){
       		#pragma unroll
 	    for(int k=0; k<4; k++)
@@ -700,7 +627,6 @@ __global__ void combinedSGEMM_v4(
 
       if((i+1) < K/8){
       // Load from A into A1
-      //sharedA1[linearThreadID] = *((float4 *)a1ReadPtr);
       // Update pointers
       a1ReadPtr += 8;
       b1ReadPtr += 8;  
@@ -737,77 +663,6 @@ __global__ void combinedSGEMM_v4(
       //rowSelect    = 8*threadIdx.y;
       //colSelect    = 4*threadIdx.x;
       for(int track = 0; track < 8; track++){
-/*
-	A_Holder = *((float4*)(&sharedA2[track][rowSelect]));
-	A2_Holder = *((float4*)(&sharedA2[track][rowSelect+4]));
-	B_Holder =  *((float4*)(&sharedB2[track][colSelect]));
-	B2_Holder =  *((float4*)(&sharedB2[track+8][colSelect]));
-        //printf("thread%d	x: %f == %f; y: %f == %f; z: %f == %f; w: %f == %f\n",linearThreadID, A_Holder.x, sharedA1[track][rowSelect], A_Holder.y, sharedA1[track][rowSelect+1], A_Holder.z, sharedA1[track][rowSelect+2], A_Holder.w, sharedA1[track][rowSelect+3]  );
-        partialSums[0][0] += A_Holder.x *  B_Holder.x;
-        partialSums[0][1] += A_Holder.x *  B_Holder.y;
-        partialSums[0][2] += A_Holder.x *  B_Holder.w;
-        partialSums[0][3] += A_Holder.x *  B_Holder.z;
-        partialSums[0][4] += A_Holder.x *  B2_Holder.x;
-        partialSums[0][5] += A_Holder.x *  B2_Holder.y;
-        partialSums[0][6] += A_Holder.x *  B2_Holder.z;
-        partialSums[0][7] += A_Holder.x *  B2_Holder.w;
-        partialSums[1][0] += A_Holder.y *  B_Holder.x;
-        partialSums[1][1] += A_Holder.y *  B_Holder.y;
-        partialSums[1][2] += A_Holder.y *  B_Holder.w;
-        partialSums[1][3] += A_Holder.y *  B_Holder.z;
-        partialSums[1][4] += A_Holder.y *  B2_Holder.x;
-        partialSums[1][5] += A_Holder.y *  B2_Holder.y;
-        partialSums[1][6] += A_Holder.y *  B2_Holder.z;
-        partialSums[1][7] += A_Holder.y *  B2_Holder.w;
-        partialSums[2][0] += A_Holder.z *  B_Holder.x;
-        partialSums[2][1] += A_Holder.z *  B_Holder.y;
-        partialSums[2][2] += A_Holder.z *  B_Holder.w;
-        partialSums[2][3] += A_Holder.z *  B_Holder.z;
-        partialSums[2][4] += A_Holder.z *  B2_Holder.x;
-        partialSums[2][5] += A_Holder.z *  B2_Holder.y;
-        partialSums[2][6] += A_Holder.z *  B2_Holder.z;
-        partialSums[2][7] += A_Holder.z *  B2_Holder.w;
-        partialSums[3][0] += A_Holder.w *  B_Holder.x;
-        partialSums[3][1] += A_Holder.w *  B_Holder.y;
-        partialSums[3][2] += A_Holder.w *  B_Holder.w;
-        partialSums[3][3] += A_Holder.w *  B_Holder.z;
-        partialSums[3][4] += A_Holder.w *  B2_Holder.x;
-        partialSums[3][5] += A_Holder.w *  B2_Holder.y;
-        partialSums[3][6] += A_Holder.w *  B2_Holder.z;
-        partialSums[3][7] += A_Holder.w *  B2_Holder.w;
-        partialSums[4][0] += A2_Holder.x *  B_Holder.x;
-        partialSums[4][1] += A2_Holder.x *  B_Holder.y;
-        partialSums[4][2] += A2_Holder.x *  B_Holder.w;
-        partialSums[4][3] += A2_Holder.x *  B_Holder.z;
-        partialSums[4][4] += A2_Holder.x *  B2_Holder.x;
-        partialSums[4][5] += A2_Holder.x *  B2_Holder.y;
-        partialSums[4][6] += A2_Holder.x *  B2_Holder.z;
-        partialSums[4][7] += A2_Holder.x *  B2_Holder.w;
-        partialSums[5][0] += A2_Holder.y *  B_Holder.x;
-        partialSums[5][1] += A2_Holder.y *  B_Holder.y;
-        partialSums[5][2] += A2_Holder.y *  B_Holder.w;
-        partialSums[5][3] += A2_Holder.y *  B_Holder.z;
-        partialSums[5][4] += A2_Holder.y *  B2_Holder.x;
-        partialSums[5][5] += A2_Holder.y *  B2_Holder.y;
-        partialSums[5][6] += A2_Holder.y *  B2_Holder.z;
-        partialSums[5][7] += A2_Holder.y *  B2_Holder.w;
-        partialSums[6][0] += A2_Holder.z *  B_Holder.x;
-        partialSums[6][1] += A2_Holder.z *  B_Holder.y;
-        partialSums[6][2] += A2_Holder.z *  B_Holder.w;
-        partialSums[6][3] += A2_Holder.z *  B_Holder.z;
-        partialSums[6][4] += A2_Holder.z *  B2_Holder.x;
-        partialSums[6][5] += A2_Holder.z *  B2_Holder.y;
-        partialSums[6][6] += A2_Holder.z *  B2_Holder.z;
-        partialSums[6][7] += A2_Holder.z *  B2_Holder.w;
-        partialSums[7][0] += A2_Holder.w *  B_Holder.x;
-        partialSums[7][1] += A2_Holder.w *  B_Holder.y;
-        partialSums[7][2] += A2_Holder.w *  B_Holder.w;
-        partialSums[7][3] += A2_Holder.w *  B_Holder.z;
-        partialSums[7][4] += A2_Holder.w *  B2_Holder.x;
-        partialSums[7][5] += A2_Holder.w *  B2_Holder.y;
-        partialSums[7][6] += A2_Holder.w *  B2_Holder.z;
-        partialSums[7][7] += A2_Holder.w *  B2_Holder.w;
-*/
 	for(int j= 0; j< 8; j++){
       		#pragma unroll
 	    for(int k=0; k<4; k++)
@@ -867,8 +722,8 @@ __global__ void combinedSGEMM_v4(
     B2_Holder.z = sqSumVecB[sqSumVecB_index+6];
     B2_Holder.w = sqSumVecB[sqSumVecB_index+7];
 
-    float * w0ReadPtr = weight + C_row;
-    float * w1ReadPtr = weight + C_row+4;
+    float * w0ReadPtr = weight + C_column;
+    float * w1ReadPtr = weight + C_column+4;
     float4 w0 = *((float4 *)w0ReadPtr);
     float4 w1 = *((float4 *)w1ReadPtr);
     float v;
