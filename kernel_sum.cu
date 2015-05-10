@@ -10,7 +10,14 @@ __global__ void KernelSumFromC(
        int M, // Number rows of A
        int N // Number of columns of B
 ) {
-
+  
+    float v;
+    __shared__ float vPartialSums[64][8];
+    for(int i=0; i<64;i++)
+	for(int j=0; j<8; j++)
+       	    vPartialSums[i][j] = 0.0f;
+    
+    int linearThreadID = threadIdx.x + (blockDim.x * threadIdx.y);
   
     // Load C in
   
@@ -55,7 +62,13 @@ __global__ void KernelSumFromC(
       rowReductions[i] += wHolder[1].y * exp(-2.0f*cHolder[i][1].y + sqSumA_holder[1].y + sqSumB_holder[1].y);
       rowReductions[i] += wHolder[1].z * exp(-2.0f*cHolder[i][1].z + sqSumA_holder[1].z + sqSumB_holder[1].z);
       rowReductions[i] += wHolder[1].w * exp(-2.0f*cHolder[i][1].w + sqSumA_holder[1].w + sqSumB_holder[1].w);
+      vPartialSums[threadIdx.y*8+i][threadIdx.x] = rowReductions[i];
     }
       
+    __syncthreads();
+    
+    v = vPartialSums[linearThreadID][0] + vPartialSums[linearThreadID][1] + vPartialSums[linearThreadID][2] + vPartialSums[linearThreadID][3] + vPartialSums[linearThreadID][4] + vPartialSums[linearThreadID][5] + vPartialSums[linearThreadID][6] + vPartialSums[linearThreadID][7];
+      
+    atomicAdd(_V+blockIdx.y*blockDim.y*8+linearThreadID, v);
     
 }

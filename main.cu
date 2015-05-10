@@ -150,12 +150,17 @@ int main(int argc, char * argv[]) {
     // Kernel Selection
     switch (kernelVersion) {
       case 0:
-	  cpuStartTime = CycleTimer::currentSeconds();
+	  gridSize1.x = N/64;
+	  gridSize1.y = M/64;
+	  gridSize1.z = 1;
+	  gridSize2.x = 8;
+	  gridSize2.y = 8;
+	  gridSize2.z = 1;
+	  callSquareSumVector(devA,devSqSumVecA,M,K,deviceProp.maxGridSize[1]);
+          callSquareSumVector(devB,devSqSumVecB,N,K,deviceProp.maxGridSize[1]);
 	  cublasInit();
 	  cublasSgemm( 'n', 'n', M, N, K, 1.0, devA, M, devB, K, 0.0, devC, M);
-	  cpuEndTime = CycleTimer::currentSeconds();
-	  runtime = 1000.f * (cpuEndTime-cpuStartTime);
-	  printf("Version %d Runtime: %.5f ms\n",kernelVersion,runtime);
+	  KernelSumFromC<<<gridSize1,gridSize2>>>(devC,devSqSumVecA,devSqSumVecB,devW,devRes,M,N);
 	  cublasShutdown();
 	  break;
       case 1:
