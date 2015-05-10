@@ -243,7 +243,10 @@ int main(int argc, char * argv[]) {
           callSquareSumVector(devB,devSqSumVecB,N,K,deviceProp.maxGridSize[1]);
 
 	  combinedSGEMM_v4<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,devW,devRes,M,N,K);
-
+	  if (GEMM_ONLY) {
+	    KernelSumFromC<<<gridSize1,gridSize2>>>(devC,devSqSumVecA,devSqSumVecB,devW,devRes,M,N);
+	  }
+	    
 	  if (cudaGetLastError() != CUDA_SUCCESS) {
 	    printf("Error in the kernel evaluation. %s \n");
 	    exit(-1);

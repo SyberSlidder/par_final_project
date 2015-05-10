@@ -681,7 +681,9 @@ __global__ void combinedSGEMM_v4(
       __syncthreads();
 
     } // End of SGEMM
-/*  
+
+    if (GEMM_ONLY) {
+    
     // Write back C
     int C_row = blockIdx.y * (blockDim.y * 8) + threadIdx.y * 8;
     int C_column = blockIdx.x * (blockDim.x * 8) + threadIdx.x * 8;
@@ -692,7 +694,8 @@ __global__ void combinedSGEMM_v4(
 	//printf("C[%d][%d] = %f\n",C_row+i,C_column+j,partialSums[i][j]);
       }
     }
-*/
+
+    } else {
 
     float4 C_holder[2];
     int C_row    = (blockIdx.y * (blockDim.y*8)) + (8*threadIdx.y);
@@ -765,6 +768,8 @@ __global__ void combinedSGEMM_v4(
 	resultMatrix(C_row*N/64+blockIdx.x) = v;
 	*/
 
+    }
+	
 }
 
 
