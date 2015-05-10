@@ -28,6 +28,16 @@ using namespace std;
 
 // Definitions of each Kernel
 
+__global__ void KernelSumFromC(
+       float * _C,
+       float * sqSumVecA, // M x 1 matrix derived from A
+       float * sqSumVecB, // N x 1 matrix derived from B
+       float * _W, // Weight Vector
+       float * _V, // Result Vector
+       int M, // Number rows of A
+       int N // Number of columns of B
+);
+
 // warpReduce Kernel
 
 void callSquareSumVector(float *srcMatrix,

@@ -233,9 +233,9 @@ int main(int argc, char * argv[]) {
 	  gridSize2.y = 8;
 	  gridSize2.z = 1;
 
-          //inplace::transpose(true,devB,K,N);
-          //callSquareSumVector(devA,devSqSumVecA,M,K,deviceProp.maxGridSize[1]);
-          //callSquareSumVector(devB,devSqSumVecB,N,K,deviceProp.maxGridSize[1]);
+          inplace::transpose(true,devB,K,N);
+          callSquareSumVector(devA,devSqSumVecA,M,K,deviceProp.maxGridSize[1]);
+          callSquareSumVector(devB,devSqSumVecB,N,K,deviceProp.maxGridSize[1]);
 
 	  combinedSGEMM_v4<<<gridSize1,gridSize2>>>(devA,devB,devC,devSqSumVecA,devSqSumVecB,devW,devRes,M,N,K);
 
